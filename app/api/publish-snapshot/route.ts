@@ -35,9 +35,11 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      url: blob.url,
-      pathname: blob.pathname,
-      uploadedAt: new Date().toISOString(),
+      hasSalesReportPublishToken: Boolean(process.env.SALES_REPORT_PUBLISH_TOKEN),
+      hasBlobReadWriteToken: Boolean(process.env.BLOB_READ_WRITE_TOKEN),
+      blobTokenLength: process.env.BLOB_READ_WRITE_TOKEN?.length || 0,
+      nodeEnv: process.env.NODE_ENV,
+      vercelEnv: process.env.VERCEL_ENV,
     });
   } catch (error: any) {
     return NextResponse.json(
