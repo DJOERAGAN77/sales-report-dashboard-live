@@ -34,6 +34,12 @@ type SnapshotData = {
   months?: Record<string, MonthSnapshot>;
 };
 
+type PageProps = {
+  searchParams?: Promise<{
+    month?: string | string[];
+  }>;
+};
+
 async function getSnapshot(): Promise<SnapshotData> {
   const snapshotUrl = process.env.NEXT_PUBLIC_DASHBOARD_SNAPSHOT_URL;
 
@@ -501,8 +507,9 @@ function SimpleTable({
   );
 }
 
-export default async function Home() {
+export default async function Home({ searchParams }: PageProps) {
   const snapshot = await getSnapshot();
+  const params = searchParams ? await searchParams : {};
 
   const months = snapshot.months || {};
   const availableMonths =
@@ -513,7 +520,16 @@ export default async function Home() {
     snapshot.latest_month ||
     availableMonths[availableMonths.length - 1];
 
-  const selectedMonth = latestMonthKey ? months[latestMonthKey] : undefined;
+  const requestedMonth = Array.isArray(params.month)
+    ? params.month[0]
+    : params.month;
+
+  const selectedMonthKey =
+    requestedMonth && months[requestedMonth]
+      ? requestedMonth
+      : latestMonthKey;
+
+  const selectedMonth = selectedMonthKey ? months[selectedMonthKey] : undefined;
 
   if (!selectedMonth) {
     return (
@@ -637,6 +653,29 @@ export default async function Home() {
             </p>
           </div>
         </div>
+
+        <form style={monthSelectorStyle}>
+          <label style={monthSelectorLabelStyle} htmlFor="month">
+            Select report month
+          </label>
+
+          <select
+            id="month"
+            name="month"
+            defaultValue={selectedMonthKey || ""}
+            style={monthSelectStyle}
+          >
+            {[...availableMonths].reverse().map((monthKey) => (
+              <option key={monthKey} value={monthKey}>
+                {months[monthKey]?.label || formatMonthYearLabel(monthKey)}
+              </option>
+            ))}
+          </select>
+
+          <button type="submit" style={monthButtonStyle}>
+            View report
+          </button>
+        </form>
 
         <section style={sectionStyle}>
           <h2 style={sectionTitleStyle}>Monthly Performance</h2>
@@ -914,4 +953,43 @@ const barValueStyle: React.CSSProperties = {
   fontSize: 13,
   color: "#4b5563",
   textAlign: "right",
+};
+
+const monthSelectorStyle: React.CSSProperties = {
+  marginTop: 28,
+  display: "flex",
+  gap: 12,
+  alignItems: "center",
+  flexWrap: "wrap",
+  background: "#fff",
+  border: "1px solid #e5e5e5",
+  borderRadius: 16,
+  padding: 16,
+  boxShadow: "0 1px 4px rgba(0,0,0,0.06)",
+};
+
+const monthSelectorLabelStyle: React.CSSProperties = {
+  fontSize: 14,
+  color: "#374151",
+  fontWeight: 700,
+};
+
+const monthSelectStyle: React.CSSProperties = {
+  minWidth: 220,
+  padding: "10px 12px",
+  borderRadius: 10,
+  border: "1px solid #d1d5db",
+  background: "#fff",
+  fontSize: 14,
+};
+
+const monthButtonStyle: React.CSSProperties = {
+  padding: "10px 16px",
+  borderRadius: 10,
+  border: "1px solid #2563eb",
+  background: "#2563eb",
+  color: "#fff",
+  fontSize: 14,
+  fontWeight: 700,
+  cursor: "pointer",
 };
