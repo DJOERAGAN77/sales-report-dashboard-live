@@ -113,6 +113,34 @@ function growthColor(value: number | null) {
   return value >= 0 ? "#047857" : "#b91c1c";
 }
 
+function getDataQualityIssueRows(
+  selectedMonth: MonthSnapshot,
+  issueName: string
+) {
+  return (selectedMonth.data_quality || []).filter((row) =>
+    String(row.Issue || "").toLowerCase().includes(issueName.toLowerCase())
+  );
+}
+
+function hasDataQualityIssue(
+  selectedMonth: MonthSnapshot,
+  issueName: string
+) {
+  return getDataQualityIssueRows(selectedMonth, issueName).length > 0;
+}
+
+function isReviewLabel(value: string) {
+  const normalized = String(value || "").trim().toLowerCase();
+
+  return [
+    "unmapped",
+    "unspecified",
+    "missing",
+    "not found",
+    "unknown",
+  ].includes(normalized);
+}
+
 function formatMonthYearLabel(value: string) {
   const match = String(value).match(/^(\d{4})-(\d{2})$/);
 
@@ -370,31 +398,49 @@ function DataQualityNotice({
 
   return (
     <section style={warningNoticeStyle}>
-      <strong>Data quality note</strong>
-      <p style={{ margin: "6px 0 12px" }}>
-        Some data quality items still need review for this report month.
-      </p>
-
-      <div style={{ overflowX: "auto" }}>
-        <table style={miniTableStyle}>
-          <thead>
-            <tr>
-              <th style={miniThStyle}>Issue</th>
-              <th style={miniThRightStyle}>Rows</th>
-              <th style={miniThStyle}>Severity</th>
-            </tr>
-          </thead>
-          <tbody>
-            {dataQualityRows.map((row, index) => (
-              <tr key={`${row.Issue}-${index}`}>
-                <td style={miniTdStyle}>{String(row.Issue || "-")}</td>
-                <td style={miniTdRightStyle}>{formatNumber(row.Rows)}</td>
-                <td style={miniTdStyle}>{String(row.Severity || "-")}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+      <div style={{ marginBottom: 14 }}>
+        <strong>Data quality summary</strong>
+        <p style={{ margin: "6px 0 0" }}>
+          Some data quality items still need review for this report month.
+        </p>
       </div>
+
+      <div style={qualitySummaryGridStyle}>
+        {dataQualityRows.map((row, index) => (
+          <div key={`${row.Issue}-${index}`} style={qualitySummaryCardStyle}>
+            <p style={qualityIssueLabelStyle}>{String(row.Issue || "-")}</p>
+            <strong style={qualityIssueValueStyle}>
+              {formatNumber(row.Rows)}
+            </strong>
+            <p style={smallMutedStyle}>{String(row.Severity || "-")} severity</p>
+          </div>
+        ))}
+      </div>
+
+      <details style={qualityDetailsStyle}>
+        <summary style={detailsSummaryStyle}>View data quality details</summary>
+
+        <div style={{ overflowX: "auto", marginTop: 12 }}>
+          <table style={miniTableStyle}>
+            <thead>
+              <tr>
+                <th style={miniThStyle}>Issue</th>
+                <th style={miniThRightStyle}>Rows</th>
+                <th style={miniThStyle}>Severity</th>
+              </tr>
+            </thead>
+            <tbody>
+              {dataQualityRows.map((row, index) => (
+                <tr key={`${row.Issue}-${index}`}>
+                  <td style={miniTdStyle}>{String(row.Issue || "-")}</td>
+                  <td style={miniTdRightStyle}>{formatNumber(row.Rows)}</td>
+                  <td style={miniTdStyle}>{String(row.Severity || "-")}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </details>
     </section>
   );
 }
@@ -591,13 +637,25 @@ function HorizontalBarChartSection({
         <div style={chartCardStyle}>
           {cleanRows.map((row) => {
             const widthPercent = Math.max((row.value / maxValue) * 100, 2);
+            const needsReview = isReviewLabel(row.label);
 
             return (
               <div key={row.label} style={barRowStyle}>
-                <div style={barLabelStyle}>{row.label}</div>
-                <div style={barTrackStyle}>
-                  <div style={{ ...barFillStyle, width: `${widthPercent}%` }} />
+                <div style={barLabelStyle}>
+                  {row.label}
+                  {needsReview && <span style={reviewBadgeStyle}>Review</span>}
                 </div>
+
+                <div style={barTrackStyle}>
+                  <div
+                    style={{
+                      ...barFillStyle,
+                      width: `${widthPercent}%`,
+                      background: needsReview ? "#f59e0b" : "#2563eb",
+                    }}
+                  />
+                </div>
+
                 <div style={barValueStyle}>{formatMoney(row.value)}</div>
               </div>
             );
@@ -650,6 +708,21 @@ function SimpleTable({
         </div>
       )}
     </section>
+  );
+}
+
+function DetailsSection({
+  title,
+  children,
+}: {
+  title: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <details style={detailsBoxStyle}>
+      <summary style={detailsHeaderStyle}>{title}</summary>
+      <div style={{ marginTop: 14 }}>{children}</div>
+    </details>
   );
 }
 
@@ -836,6 +909,13 @@ export default async function Home({ searchParams }: PageProps) {
         <section style={sectionStyle}>
           <h2 style={sectionTitleStyle}>Monthly Performance</h2>
 
+          {hasDataQualityIssue(selectedMonth, "Missing / Zero Cost") && (
+            <div style={marginWarningStyle}>
+              Gross Profit and Gross Margin may be affected by missing or zero cost data.
+              Please review the Data Quality section before using margin figures for final decisions.
+            </div>
+          )}
+
           <div style={gridStyle}>
             <KpiCard label="Sales" value={current.Sales} previous={previous.Sales} type="money" />
             <KpiCard label="Gross Profit" value={current.GrossProfit} previous={previous.GrossProfit} type="money" />
@@ -888,11 +968,13 @@ export default async function Home({ searchParams }: PageProps) {
           labelKey="SalesChannel"
         />
 
-        <SimpleTable
-          title="Top Sales Channels"
-          rows={selectedMonth.top_channels || []}
-          labelKey="SalesChannel"
-        />
+        <DetailsSection title="View Sales Channel details">
+          <SimpleTable
+            title="Top Sales Channels"
+            rows={selectedMonth.top_channels || []}
+            labelKey="SalesChannel"
+          />
+        </DetailsSection>
 
         <HorizontalBarChartSection
           title="Top Countries by Sales"
@@ -900,11 +982,13 @@ export default async function Home({ searchParams }: PageProps) {
           labelKey="DeliveryCountry"
         />
 
-        <SimpleTable
-          title="Top Countries"
-          rows={selectedMonth.top_countries || []}
-          labelKey="DeliveryCountry"
-        />
+        <DetailsSection title="View Product Type details">
+          <SimpleTable
+            title="Top Product Types"
+            rows={selectedMonth.top_product_types || []}
+            labelKey="ProductType"
+          />
+        </DetailsSection>
 
         <HorizontalBarChartSection
           title="Top Product Types by Sales"
@@ -912,11 +996,13 @@ export default async function Home({ searchParams }: PageProps) {
           labelKey="ProductType"
         />
 
-        <SimpleTable
-          title="Top Product Types"
-          rows={selectedMonth.top_product_types || []}
-          labelKey="ProductType"
-        />
+        <DetailsSection title="View Product Type details">
+          <SimpleTable
+            title="Top Product Types"
+            rows={selectedMonth.top_product_types || []}
+            labelKey="ProductType"
+          />
+        </DetailsSection>
 
         <HorizontalBarChartSection
           title="Top Products by Sales"
@@ -924,11 +1010,13 @@ export default async function Home({ searchParams }: PageProps) {
           labelKey="ProductName"
         />
 
-        <SimpleTable
-          title="Top Products"
-          rows={selectedMonth.top_products || []}
-          labelKey="ProductName"
-        />
+        <DetailsSection title="View Product details">
+          <SimpleTable
+            title="Top Products"
+            rows={selectedMonth.top_products || []}
+            labelKey="ProductName"
+          />
+        </DetailsSection>
 
         <HorizontalBarChartSection
           title="Top Clients by Sales"
@@ -1249,4 +1337,77 @@ const miniTdStyle: React.CSSProperties = {
 const miniTdRightStyle: React.CSSProperties = {
   ...miniTdStyle,
   textAlign: "right",
+};
+
+const marginWarningStyle: React.CSSProperties = {
+  margin: "0 0 18px",
+  border: "1px solid #f59e0b",
+  background: "#fffbeb",
+  color: "#92400e",
+  borderRadius: 12,
+  padding: "12px 14px",
+  fontSize: 14,
+  lineHeight: 1.5,
+};
+
+const reviewBadgeStyle: React.CSSProperties = {
+  display: "inline-block",
+  marginLeft: 8,
+  padding: "2px 7px",
+  borderRadius: 999,
+  background: "#fef3c7",
+  color: "#92400e",
+  fontSize: 11,
+  fontWeight: 700,
+};
+
+const qualitySummaryGridStyle: React.CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
+  gap: 12,
+};
+
+const qualitySummaryCardStyle: React.CSSProperties = {
+  background: "rgba(255,255,255,0.65)",
+  border: "1px solid rgba(146,64,14,0.2)",
+  borderRadius: 12,
+  padding: 14,
+};
+
+const qualityIssueLabelStyle: React.CSSProperties = {
+  margin: 0,
+  fontSize: 13,
+  fontWeight: 700,
+};
+
+const qualityIssueValueStyle: React.CSSProperties = {
+  display: "block",
+  marginTop: 8,
+  fontSize: 26,
+  lineHeight: 1,
+};
+
+const qualityDetailsStyle: React.CSSProperties = {
+  marginTop: 14,
+};
+
+const detailsSummaryStyle: React.CSSProperties = {
+  cursor: "pointer",
+  fontWeight: 700,
+  fontSize: 14,
+};
+
+const detailsBoxStyle: React.CSSProperties = {
+  marginTop: 12,
+  background: "#fff",
+  border: "1px solid #e5e7eb",
+  borderRadius: 14,
+  padding: 14,
+  boxShadow: "0 1px 3px rgba(0,0,0,0.04)",
+};
+
+const detailsHeaderStyle: React.CSSProperties = {
+  cursor: "pointer",
+  fontWeight: 700,
+  color: "#111827",
 };
