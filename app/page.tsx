@@ -76,6 +76,38 @@ function formatMoney(value?: number | null) {
   }).format(value);
 }
 
+function formatMonthYearLabel(value: string) {
+  const match = String(value).match(/^(\d{4})-(\d{2})$/);
+
+  if (!match) return String(value);
+
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+
+  const date = new Date(year, month - 1, 1);
+
+  return new Intl.DateTimeFormat("en-US", {
+    month: "short",
+    year: "numeric",
+  }).format(date);
+}
+
+function formatCompactMoney(value?: number | null) {
+  if (value === null || value === undefined || Number.isNaN(value)) return "-";
+
+  const absValue = Math.abs(value);
+
+  if (absValue >= 1000000) {
+    return `€${(value / 1000000).toFixed(1)}M`;
+  }
+
+  if (absValue >= 1000) {
+    return `€${Math.round(value / 1000)}k`;
+  }
+
+  return `€${Math.round(value)}`;
+}
+
 function formatPercent(value?: number | null) {
   if (value === null || value === undefined || Number.isNaN(value)) return "-";
 
@@ -227,9 +259,9 @@ function MiniLineChart({
   yKey: string;
 }) {
   const cleanRows = rows
-    .filter((row) => row[xKey] && typeof Number(row[yKey]) === "number")
+    .filter((row) => row[xKey] && !Number.isNaN(Number(row[yKey])))
     .map((row) => ({
-      label: String(row[xKey]),
+      label: formatMonthYearLabel(String(row[xKey])),
       value: Number(row[yKey]) || 0,
     }));
 
@@ -242,15 +274,22 @@ function MiniLineChart({
     );
   }
 
-  const width = 900;
-  const height = 260;
-  const paddingLeft = 60;
-  const paddingRight = 25;
-  const paddingTop = 25;
-  const paddingBottom = 55;
+  const width = 1000;
+  const height = 340;
+  const paddingLeft = 80;
+  const paddingRight = 35;
+  const paddingTop = 45;
+  const paddingBottom = 70;
 
-  const maxValue = Math.max(...cleanRows.map((row) => row.value), 1);
-  const minValue = 0;
+  const tickStep = 100000;
+  const maxRawValue = Math.max(...cleanRows.map((row) => row.value), 1);
+  const axisMax = Math.ceil(maxRawValue / tickStep) * tickStep;
+
+  const tickValues: number[] = [];
+
+  for (let value = 0; value <= axisMax; value += tickStep) {
+    tickValues.push(value);
+  }
 
   const plotWidth = width - paddingLeft - paddingRight;
   const plotHeight = height - paddingTop - paddingBottom;
@@ -264,7 +303,7 @@ function MiniLineChart({
     const y =
       paddingTop +
       plotHeight -
-      ((row.value - minValue) / (maxValue - minValue || 1)) * plotHeight;
+      (row.value / (axisMax || 1)) * plotHeight;
 
     return { ...row, x, y };
   });
@@ -281,12 +320,41 @@ function MiniLineChart({
           style={{ width: "100%", height: "auto" }}
           role="img"
         >
+          {tickValues.map((tick) => {
+            const y =
+              paddingTop +
+              plotHeight -
+              (tick / (axisMax || 1)) * plotHeight;
+
+            return (
+              <g key={`tick-${tick}`}>
+                <line
+                  x1={paddingLeft}
+                  y1={y}
+                  x2={width - paddingRight}
+                  y2={y}
+                  stroke="#e5e7eb"
+                  strokeWidth="1"
+                />
+                <text
+                  x={paddingLeft - 12}
+                  y={y + 4}
+                  textAnchor="end"
+                  fontSize="12"
+                  fill="#6b7280"
+                >
+                  {formatCompactMoney(tick)}
+                </text>
+              </g>
+            );
+          })}
+
           <line
             x1={paddingLeft}
             y1={paddingTop}
             x2={paddingLeft}
             y2={height - paddingBottom}
-            stroke="#e5e7eb"
+            stroke="#d1d5db"
             strokeWidth="1"
           />
           <line
@@ -294,16 +362,9 @@ function MiniLineChart({
             y1={height - paddingBottom}
             x2={width - paddingRight}
             y2={height - paddingBottom}
-            stroke="#e5e7eb"
+            stroke="#d1d5db"
             strokeWidth="1"
           />
-
-          <text x="8" y={paddingTop + 5} fontSize="12" fill="#6b7280">
-            {formatMoney(maxValue)}
-          </text>
-          <text x="8" y={height - paddingBottom + 5} fontSize="12" fill="#6b7280">
-            {formatMoney(0)}
-          </text>
 
           <polyline
             points={pointString}
@@ -314,12 +375,24 @@ function MiniLineChart({
 
           {points.map((point, index) => (
             <g key={`${point.label}-${index}`}>
-              <circle cx={point.x} cy={point.y} r="4" fill="#2563eb" />
+              <circle cx={point.x} cy={point.y} r="5" fill="#2563eb" />
+
               <text
                 x={point.x}
-                y={height - 25}
+                y={point.y - 12}
                 textAnchor="middle"
-                fontSize="11"
+                fontSize="12"
+                fontWeight="700"
+                fill="#111827"
+              >
+                {formatCompactMoney(point.value)}
+              </text>
+
+              <text
+                x={point.x}
+                y={height - 35}
+                textAnchor="middle"
+                fontSize="12"
                 fill="#6b7280"
               >
                 {point.label}
@@ -614,12 +687,6 @@ export default async function Home() {
 
         <HorizontalBarChartSection
           title="Top Sales Channels by Sales"
-          rows={selectedMonth.top_channels || []}
-          labelKey="SalesChannel"
-        />
-
-        <SimpleTable
-          title="Top Sales Channels"
           rows={selectedMonth.top_channels || []}
           labelKey="SalesChannel"
         />
