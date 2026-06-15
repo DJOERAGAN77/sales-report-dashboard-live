@@ -82,6 +82,35 @@ function formatMoney(value?: number | null) {
   }).format(value);
 }
 
+function formatDateTime(value?: string | null) {
+  if (!value) return "-";
+
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) return value;
+
+  return new Intl.DateTimeFormat("en-GB", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(date);
+}
+
+function formatSignedGrowthValue(value: number | null) {
+  if (value === null || Number.isNaN(value)) return "-";
+
+  const sign = value >= 0 ? "+" : "";
+
+  return `${sign}${value.toFixed(1)}%`;
+}
+
+function growthColor(value: number | null) {
+  if (value === null || Number.isNaN(value)) return "#6b7280";
+  return value >= 0 ? "#047857" : "#b91c1c";
+}
+
 function formatMonthYearLabel(value: string) {
   const match = String(value).match(/^(\d{4})-(\d{2})$/);
 
@@ -249,6 +278,95 @@ function ComparisonTable({
           </tbody>
         </table>
       </div>
+    </section>
+  );
+}
+
+function ExecutiveSummary({
+  selectedMonth,
+  current,
+  previous,
+  currentYtd,
+  previousYtd,
+}: {
+  selectedMonth: MonthSnapshot;
+  current: Kpi;
+  previous: Kpi;
+  currentYtd: Kpi;
+  previousYtd: Kpi;
+}) {
+  const monthlySalesGrowth = growthPct(current.Sales, previous.Sales);
+  const ytdSalesGrowth = growthPct(currentYtd.Sales, previousYtd.Sales);
+
+  const marginChange =
+    current.GrossMarginPct !== null &&
+    current.GrossMarginPct !== undefined &&
+    previous.GrossMarginPct !== null &&
+    previous.GrossMarginPct !== undefined
+      ? current.GrossMarginPct - previous.GrossMarginPct
+      : null;
+
+  return (
+    <section style={summarySectionStyle}>
+      <div>
+        <p style={eyebrowStyle}>Executive summary</p>
+        <h2 style={summaryTitleStyle}>{selectedMonth.label} performance overview</h2>
+      </div>
+
+      <div style={summaryGridStyle}>
+        <div style={summaryCardStyle}>
+          <p style={labelStyle}>Monthly sales vs LY</p>
+          <strong style={{ ...summaryValueStyle, color: growthColor(monthlySalesGrowth) }}>
+            {formatSignedGrowthValue(monthlySalesGrowth)}
+          </strong>
+          <p style={smallMutedStyle}>
+            {formatMoney(current.Sales)} vs {formatMoney(previous.Sales)}
+          </p>
+        </div>
+
+        <div style={summaryCardStyle}>
+          <p style={labelStyle}>YTD sales vs LY</p>
+          <strong style={{ ...summaryValueStyle, color: growthColor(ytdSalesGrowth) }}>
+            {formatSignedGrowthValue(ytdSalesGrowth)}
+          </strong>
+          <p style={smallMutedStyle}>
+            {formatMoney(currentYtd.Sales)} vs {formatMoney(previousYtd.Sales)}
+          </p>
+        </div>
+
+        <div style={summaryCardStyle}>
+          <p style={labelStyle}>Gross margin change</p>
+          <strong style={{ ...summaryValueStyle, color: growthColor(marginChange) }}>
+            {marginChange === null ? "-" : `${marginChange >= 0 ? "+" : ""}${marginChange.toFixed(1)} pts`}
+          </strong>
+          <p style={smallMutedStyle}>
+            Current margin: {formatPercent(current.GrossMarginPct)}
+          </p>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function DataQualityNotice({
+  selectedMonth,
+}: {
+  selectedMonth: MonthSnapshot;
+}) {
+  const unmappedChannel = (selectedMonth.top_channels || []).find((row) =>
+    String(row.SalesChannel || "").trim().toLowerCase() === "unmapped"
+  );
+
+  if (!unmappedChannel) return null;
+
+  return (
+    <section style={warningNoticeStyle}>
+      <strong>Data quality note</strong>
+      <p style={{ margin: "6px 0 0" }}>
+        Some sales are still assigned to <b>Unmapped</b> sales channel.
+        Current unmapped sales value: <b>{formatMoney(unmappedChannel.Sales)}</b>.
+        Please review Sales Channel Fix when possible.
+      </p>
     </section>
   );
 }
@@ -646,7 +764,7 @@ export default async function Home({ searchParams }: PageProps) {
             <p style={labelStyle}>Source</p>
             <strong>{snapshot.source || "Snapshot"}</strong>
             <p style={smallMutedStyle}>
-              Updated: {snapshot.generated_at || "-"}
+              Updated: {formatDateTime(snapshot.generated_at)}
             </p>
             <p style={smallMutedStyle}>
               Sales orders are recorded based on orders with open &amp; partial status.
@@ -676,6 +794,16 @@ export default async function Home({ searchParams }: PageProps) {
             View report
           </button>
         </form>
+
+        <ExecutiveSummary
+          selectedMonth={selectedMonth}
+          current={current}
+          previous={previous}
+          currentYtd={currentYtd}
+          previousYtd={previousYtd}
+        />
+
+        <DataQualityNotice selectedMonth={selectedMonth} />
 
         <section style={sectionStyle}>
           <h2 style={sectionTitleStyle}>Monthly Performance</h2>
@@ -997,4 +1125,48 @@ const monthButtonStyle: React.CSSProperties = {
   fontSize: 14,
   fontWeight: 700,
   cursor: "pointer",
+};
+
+const summarySectionStyle: React.CSSProperties = {
+  marginTop: 28,
+  background: "#fff",
+  border: "1px solid #e5e5e5",
+  borderRadius: 18,
+  padding: 22,
+  boxShadow: "0 1px 4px rgba(0,0,0,0.06)",
+};
+
+const summaryTitleStyle: React.CSSProperties = {
+  margin: "6px 0 18px",
+  fontSize: 24,
+  lineHeight: 1.2,
+};
+
+const summaryGridStyle: React.CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))",
+  gap: 14,
+};
+
+const summaryCardStyle: React.CSSProperties = {
+  border: "1px solid #eef0f3",
+  borderRadius: 14,
+  padding: 16,
+  background: "#fafafa",
+};
+
+const summaryValueStyle: React.CSSProperties = {
+  display: "block",
+  marginTop: 8,
+  fontSize: 28,
+  lineHeight: 1.1,
+};
+
+const warningNoticeStyle: React.CSSProperties = {
+  marginTop: 18,
+  border: "1px solid #f59e0b",
+  background: "#fffbeb",
+  color: "#92400e",
+  borderRadius: 14,
+  padding: 16,
 };
