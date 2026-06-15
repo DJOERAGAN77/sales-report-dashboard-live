@@ -215,6 +215,174 @@ function ComparisonTable({
   );
 }
 
+function MiniLineChart({
+  title,
+  rows,
+  xKey,
+  yKey,
+}: {
+  title: string;
+  rows: Record<string, any>[];
+  xKey: string;
+  yKey: string;
+}) {
+  const cleanRows = rows
+    .filter((row) => row[xKey] && typeof Number(row[yKey]) === "number")
+    .map((row) => ({
+      label: String(row[xKey]),
+      value: Number(row[yKey]) || 0,
+    }));
+
+  if (cleanRows.length === 0) {
+    return (
+      <section style={sectionStyle}>
+        <h2 style={sectionTitleStyle}>{title}</h2>
+        <p style={smallMutedStyle}>No chart data available.</p>
+      </section>
+    );
+  }
+
+  const width = 900;
+  const height = 260;
+  const paddingLeft = 60;
+  const paddingRight = 25;
+  const paddingTop = 25;
+  const paddingBottom = 55;
+
+  const maxValue = Math.max(...cleanRows.map((row) => row.value), 1);
+  const minValue = 0;
+
+  const plotWidth = width - paddingLeft - paddingRight;
+  const plotHeight = height - paddingTop - paddingBottom;
+
+  const points = cleanRows.map((row, index) => {
+    const x =
+      cleanRows.length === 1
+        ? paddingLeft + plotWidth / 2
+        : paddingLeft + (index / (cleanRows.length - 1)) * plotWidth;
+
+    const y =
+      paddingTop +
+      plotHeight -
+      ((row.value - minValue) / (maxValue - minValue || 1)) * plotHeight;
+
+    return { ...row, x, y };
+  });
+
+  const pointString = points.map((point) => `${point.x},${point.y}`).join(" ");
+
+  return (
+    <section style={sectionStyle}>
+      <h2 style={sectionTitleStyle}>{title}</h2>
+
+      <div style={chartCardStyle}>
+        <svg
+          viewBox={`0 0 ${width} ${height}`}
+          style={{ width: "100%", height: "auto" }}
+          role="img"
+        >
+          <line
+            x1={paddingLeft}
+            y1={paddingTop}
+            x2={paddingLeft}
+            y2={height - paddingBottom}
+            stroke="#e5e7eb"
+            strokeWidth="1"
+          />
+          <line
+            x1={paddingLeft}
+            y1={height - paddingBottom}
+            x2={width - paddingRight}
+            y2={height - paddingBottom}
+            stroke="#e5e7eb"
+            strokeWidth="1"
+          />
+
+          <text x="8" y={paddingTop + 5} fontSize="12" fill="#6b7280">
+            {formatMoney(maxValue)}
+          </text>
+          <text x="8" y={height - paddingBottom + 5} fontSize="12" fill="#6b7280">
+            {formatMoney(0)}
+          </text>
+
+          <polyline
+            points={pointString}
+            fill="none"
+            stroke="#2563eb"
+            strokeWidth="3"
+          />
+
+          {points.map((point, index) => (
+            <g key={`${point.label}-${index}`}>
+              <circle cx={point.x} cy={point.y} r="4" fill="#2563eb" />
+              <text
+                x={point.x}
+                y={height - 25}
+                textAnchor="middle"
+                fontSize="11"
+                fill="#6b7280"
+              >
+                {point.label}
+              </text>
+            </g>
+          ))}
+        </svg>
+      </div>
+    </section>
+  );
+}
+
+function HorizontalBarChartSection({
+  title,
+  rows,
+  labelKey,
+  valueKey = "Sales",
+  limit = 10,
+}: {
+  title: string;
+  rows: Record<string, any>[];
+  labelKey: string;
+  valueKey?: string;
+  limit?: number;
+}) {
+  const cleanRows = rows
+    .filter((row) => row[labelKey] !== undefined && row[valueKey] !== undefined)
+    .map((row) => ({
+      label: String(row[labelKey] ?? "-"),
+      value: Number(row[valueKey]) || 0,
+    }))
+    .sort((a, b) => b.value - a.value)
+    .slice(0, limit);
+
+  const maxValue = Math.max(...cleanRows.map((row) => row.value), 1);
+
+  return (
+    <section style={sectionStyle}>
+      <h2 style={sectionTitleStyle}>{title}</h2>
+
+      {cleanRows.length === 0 ? (
+        <p style={smallMutedStyle}>No chart data available.</p>
+      ) : (
+        <div style={chartCardStyle}>
+          {cleanRows.map((row) => {
+            const widthPercent = Math.max((row.value / maxValue) * 100, 2);
+
+            return (
+              <div key={row.label} style={barRowStyle}>
+                <div style={barLabelStyle}>{row.label}</div>
+                <div style={barTrackStyle}>
+                  <div style={{ ...barFillStyle, width: `${widthPercent}%` }} />
+                </div>
+                <div style={barValueStyle}>{formatMoney(row.value)}</div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </section>
+  );
+}
+
 function SimpleTable({
   title,
   rows,
@@ -437,10 +605,35 @@ export default async function Home() {
           rows={ytdComparisonRows}
         />
 
+        <MiniLineChart
+          title="Monthly Sales Trend"
+          rows={snapshot.monthly_trend || []}
+          xKey="YearMonth"
+          yKey="Sales"
+        />
+
+        <HorizontalBarChartSection
+          title="Top Sales Channels by Sales"
+          rows={selectedMonth.top_channels || []}
+          labelKey="SalesChannel"
+        />
+
         <SimpleTable
           title="Top Sales Channels"
           rows={selectedMonth.top_channels || []}
           labelKey="SalesChannel"
+        />
+
+        <SimpleTable
+          title="Top Sales Channels"
+          rows={selectedMonth.top_channels || []}
+          labelKey="SalesChannel"
+        />
+
+        <HorizontalBarChartSection
+          title="Top Countries by Sales"
+          rows={selectedMonth.top_countries || []}
+          labelKey="DeliveryCountry"
         />
 
         <SimpleTable
@@ -449,10 +642,22 @@ export default async function Home() {
           labelKey="DeliveryCountry"
         />
 
+        <HorizontalBarChartSection
+          title="Top Products by Sales"
+          rows={selectedMonth.top_products || []}
+          labelKey="ProductName"
+        />
+
         <SimpleTable
           title="Top Products"
           rows={selectedMonth.top_products || []}
           labelKey="ProductName"
+        />
+
+        <HorizontalBarChartSection
+          title="Top Clients by Sales"
+          rows={selectedMonth.top_clients || []}
+          labelKey="ClientName"
         />
 
         <SimpleTable
@@ -599,4 +804,47 @@ const preStyle: React.CSSProperties = {
   borderRadius: 12,
   overflowX: "auto",
   fontSize: 13,
+};
+
+const chartCardStyle: React.CSSProperties = {
+  background: "#fff",
+  border: "1px solid #e5e5e5",
+  borderRadius: 16,
+  padding: 20,
+  boxShadow: "0 1px 4px rgba(0,0,0,0.06)",
+};
+
+const barRowStyle: React.CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "220px 1fr 120px",
+  gap: 12,
+  alignItems: "center",
+  marginBottom: 12,
+};
+
+const barLabelStyle: React.CSSProperties = {
+  fontSize: 14,
+  color: "#111827",
+  overflow: "hidden",
+  textOverflow: "ellipsis",
+  whiteSpace: "nowrap",
+};
+
+const barTrackStyle: React.CSSProperties = {
+  height: 16,
+  background: "#eef2ff",
+  borderRadius: 999,
+  overflow: "hidden",
+};
+
+const barFillStyle: React.CSSProperties = {
+  height: "100%",
+  background: "#2563eb",
+  borderRadius: 999,
+};
+
+const barValueStyle: React.CSSProperties = {
+  fontSize: 13,
+  color: "#4b5563",
+  textAlign: "right",
 };
