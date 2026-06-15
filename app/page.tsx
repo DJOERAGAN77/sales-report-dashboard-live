@@ -20,7 +20,9 @@ type MonthSnapshot = {
   top_channels: Record<string, any>[];
   top_countries: Record<string, any>[];
   top_products: Record<string, any>[];
+  top_product_types?: Record<string, any>[];
   top_clients: Record<string, any>[];
+  data_quality?: Record<string, any>[];
   comparison_by_channel: Record<string, any>[];
 };
 
@@ -353,20 +355,46 @@ function DataQualityNotice({
 }: {
   selectedMonth: MonthSnapshot;
 }) {
-  const unmappedChannel = (selectedMonth.top_channels || []).find((row) =>
-    String(row.SalesChannel || "").trim().toLowerCase() === "unmapped"
-  );
+  const dataQualityRows = selectedMonth.data_quality || [];
 
-  if (!unmappedChannel) return null;
+  if (dataQualityRows.length === 0) {
+    return (
+      <section style={successNoticeStyle}>
+        <strong>Data quality</strong>
+        <p style={{ margin: "6px 0 0" }}>
+          No major data quality issues found for this report month.
+        </p>
+      </section>
+    );
+  }
 
   return (
     <section style={warningNoticeStyle}>
       <strong>Data quality note</strong>
-      <p style={{ margin: "6px 0 0" }}>
-        Some sales are still assigned to <b>Unmapped</b> sales channel.
-        Current unmapped sales value: <b>{formatMoney(unmappedChannel.Sales)}</b>.
-        Please review Sales Channel Fix when possible.
+      <p style={{ margin: "6px 0 12px" }}>
+        Some data quality items still need review for this report month.
       </p>
+
+      <div style={{ overflowX: "auto" }}>
+        <table style={miniTableStyle}>
+          <thead>
+            <tr>
+              <th style={miniThStyle}>Issue</th>
+              <th style={miniThRightStyle}>Rows</th>
+              <th style={miniThStyle}>Severity</th>
+            </tr>
+          </thead>
+          <tbody>
+            {dataQualityRows.map((row, index) => (
+              <tr key={`${row.Issue}-${index}`}>
+                <td style={miniTdStyle}>{String(row.Issue || "-")}</td>
+                <td style={miniTdRightStyle}>{formatNumber(row.Rows)}</td>
+                <td style={miniTdStyle}>{String(row.Severity || "-")}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
     </section>
   );
 }
@@ -846,8 +874,10 @@ export default async function Home({ searchParams }: PageProps) {
         />
 
         <MiniLineChart
-          title="Monthly Sales Trend"
-          rows={snapshot.monthly_trend || []}
+          title="Monthly Sales Trend — Last 12 Months"
+          rows={(snapshot.monthly_trend || [])
+            .filter((row) => String(row.YearMonth || "") <= String(selectedMonthKey || ""))
+            .slice(-12)}
           xKey="YearMonth"
           yKey="Sales"
         />
@@ -874,6 +904,18 @@ export default async function Home({ searchParams }: PageProps) {
           title="Top Countries"
           rows={selectedMonth.top_countries || []}
           labelKey="DeliveryCountry"
+        />
+
+        <HorizontalBarChartSection
+          title="Top Product Types by Sales"
+          rows={selectedMonth.top_product_types || []}
+          labelKey="ProductType"
+        />
+
+        <SimpleTable
+          title="Top Product Types"
+          rows={selectedMonth.top_product_types || []}
+          labelKey="ProductType"
         />
 
         <HorizontalBarChartSection
@@ -1169,4 +1211,42 @@ const warningNoticeStyle: React.CSSProperties = {
   color: "#92400e",
   borderRadius: 14,
   padding: 16,
+};
+
+const successNoticeStyle: React.CSSProperties = {
+  marginTop: 18,
+  border: "1px solid #10b981",
+  background: "#ecfdf5",
+  color: "#065f46",
+  borderRadius: 14,
+  padding: 16,
+};
+
+const miniTableStyle: React.CSSProperties = {
+  width: "100%",
+  borderCollapse: "collapse",
+  background: "rgba(255,255,255,0.55)",
+};
+
+const miniThStyle: React.CSSProperties = {
+  textAlign: "left",
+  padding: "8px 10px",
+  borderBottom: "1px solid rgba(0,0,0,0.12)",
+  fontSize: 13,
+};
+
+const miniThRightStyle: React.CSSProperties = {
+  ...miniThStyle,
+  textAlign: "right",
+};
+
+const miniTdStyle: React.CSSProperties = {
+  padding: "8px 10px",
+  borderBottom: "1px solid rgba(0,0,0,0.08)",
+  fontSize: 13,
+};
+
+const miniTdRightStyle: React.CSSProperties = {
+  ...miniTdStyle,
+  textAlign: "right",
 };
