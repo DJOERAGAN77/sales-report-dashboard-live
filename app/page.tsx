@@ -133,6 +133,88 @@ function KpiCard({
   );
 }
 
+function formatComparisonValue(
+  value?: number | null,
+  type: "money" | "number" | "percent" = "number"
+) {
+  if (type === "money") return formatMoney(value);
+  if (type === "percent") return formatPercent(value);
+  return formatNumber(value);
+}
+
+function formatGrowthOnly(current?: number | null, previous?: number | null) {
+  const growth = growthPct(current, previous);
+
+  if (growth === null || Number.isNaN(growth)) return "-";
+
+  const sign = growth >= 0 ? "+" : "";
+
+  return `${sign}${growth.toFixed(1)}%`;
+}
+
+function ComparisonTable({
+  title,
+  currentLabel,
+  previousLabel,
+  rows,
+}: {
+  title: string;
+  currentLabel: string;
+  previousLabel: string;
+  rows: {
+    metric: string;
+    current?: number | null;
+    previous?: number | null;
+    type?: "money" | "number" | "percent";
+  }[];
+}) {
+  return (
+    <section style={sectionStyle}>
+      <h2 style={sectionTitleStyle}>{title}</h2>
+
+      <div style={{ overflowX: "auto" }}>
+        <table style={tableStyle}>
+          <thead>
+            <tr>
+              <th style={thStyle}>Metric</th>
+              <th style={thRightStyle}>{currentLabel}</th>
+              <th style={thRightStyle}>{previousLabel}</th>
+              <th style={thRightStyle}>Change</th>
+              <th style={thRightStyle}>Growth / Decline</th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((row) => {
+              const current = row.current ?? null;
+              const previous = row.previous ?? null;
+              const change =
+                current !== null && previous !== null ? current - previous : null;
+
+              return (
+                <tr key={row.metric}>
+                  <td style={tdStyle}>{row.metric}</td>
+                  <td style={tdRightStyle}>
+                    {formatComparisonValue(current, row.type)}
+                  </td>
+                  <td style={tdRightStyle}>
+                    {formatComparisonValue(previous, row.type)}
+                  </td>
+                  <td style={tdRightStyle}>
+                    {formatComparisonValue(change, row.type)}
+                  </td>
+                  <td style={tdRightStyle}>
+                    {formatGrowthOnly(current, previous)}
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+    </section>
+  );
+}
+
 function SimpleTable({
   title,
   rows,
@@ -213,6 +295,84 @@ export default async function Home() {
   const currentYtd = selectedMonth.current_ytd_kpi || {};
   const previousYtd = selectedMonth.last_year_ytd_kpi || {};
 
+    const monthlyComparisonRows = [
+    {
+      metric: "Sales",
+      current: current.Sales,
+      previous: previous.Sales,
+      type: "money" as const,
+    },
+    {
+      metric: "Gross Profit",
+      current: current.GrossProfit,
+      previous: previous.GrossProfit,
+      type: "money" as const,
+    },
+    {
+      metric: "Gross Margin",
+      current: current.GrossMarginPct,
+      previous: previous.GrossMarginPct,
+      type: "percent" as const,
+    },
+    {
+      metric: "Orders",
+      current: current.Orders,
+      previous: previous.Orders,
+      type: "number" as const,
+    },
+    {
+      metric: "Clients",
+      current: current.Clients,
+      previous: previous.Clients,
+      type: "number" as const,
+    },
+    {
+      metric: "Quantity",
+      current: current.Quantity,
+      previous: previous.Quantity,
+      type: "number" as const,
+    },
+  ];
+
+  const ytdComparisonRows = [
+    {
+      metric: "YTD Sales",
+      current: currentYtd.Sales,
+      previous: previousYtd.Sales,
+      type: "money" as const,
+    },
+    {
+      metric: "YTD Gross Profit",
+      current: currentYtd.GrossProfit,
+      previous: previousYtd.GrossProfit,
+      type: "money" as const,
+    },
+    {
+      metric: "YTD Gross Margin",
+      current: currentYtd.GrossMarginPct,
+      previous: previousYtd.GrossMarginPct,
+      type: "percent" as const,
+    },
+    {
+      metric: "YTD Orders",
+      current: currentYtd.Orders,
+      previous: previousYtd.Orders,
+      type: "number" as const,
+    },
+    {
+      metric: "YTD Clients",
+      current: currentYtd.Clients,
+      previous: previousYtd.Clients,
+      type: "number" as const,
+    },
+    {
+      metric: "YTD Quantity",
+      current: currentYtd.Quantity,
+      previous: previousYtd.Quantity,
+      type: "number" as const,
+    },
+  ];
+
   return (
     <main style={pageStyle}>
       <div style={containerStyle}>
@@ -247,6 +407,13 @@ export default async function Home() {
           </div>
         </section>
 
+        <ComparisonTable
+          title={`Sales Comparison — ${selectedMonth.label} vs same month last year`}
+          currentLabel={selectedMonth.label}
+          previousLabel={`Same month LY`}
+          rows={monthlyComparisonRows}
+        />
+
         <section style={sectionStyle}>
           <h2 style={sectionTitleStyle}>YTD Performance</h2>
 
@@ -259,6 +426,13 @@ export default async function Home() {
             <KpiCard label="YTD Quantity" value={currentYtd.Quantity} previous={previousYtd.Quantity} />
           </div>
         </section>
+
+        <ComparisonTable
+          title={`YTD Comparison — ${selectedMonth.year} vs ${selectedMonth.year - 1}`}
+          currentLabel={`YTD ${selectedMonth.year}`}
+          previousLabel={`YTD ${selectedMonth.year - 1}`}
+          rows={ytdComparisonRows}
+        />
 
         <SimpleTable
           title="Top Sales Channels"
