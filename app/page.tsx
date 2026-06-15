@@ -391,6 +391,9 @@ export default async function Home() {
             <p style={smallMutedStyle}>
               Updated: {snapshot.generated_at || "-"}
             </p>
+            <p style={smallMutedStyle}>
+              Sales orders are recorded based on orders with open &amp; partial status.
+            </p>
           </div>
         </div>
 
