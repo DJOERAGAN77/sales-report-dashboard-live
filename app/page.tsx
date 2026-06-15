@@ -1024,11 +1024,13 @@ export default async function Home({ searchParams }: PageProps) {
           labelKey="ClientName"
         />
 
-        <SimpleTable
-          title="Top Clients"
-          rows={selectedMonth.top_clients || []}
-          labelKey="ClientName"
-        />
+        <DetailsSection title="View Client details">
+          <SimpleTable
+            title="Top Clients"
+            rows={selectedMonth.top_clients || []}
+            labelKey="ClientName"
+          />
+        </DetailsSection>
       </div>
     </main>
   );
