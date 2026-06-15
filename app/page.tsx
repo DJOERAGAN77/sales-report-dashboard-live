@@ -667,7 +667,7 @@ export default async function Home({ searchParams }: PageProps) {
           >
             {[...availableMonths].reverse().map((monthKey) => (
               <option key={monthKey} value={monthKey}>
-                {months[monthKey]?.label || formatMonthYearLabel(monthKey)}
+                {String(months[monthKey]?.label || formatMonthYearLabel(monthKey))}
               </option>
             ))}
           </select>
@@ -976,11 +976,16 @@ const monthSelectorLabelStyle: React.CSSProperties = {
 
 const monthSelectStyle: React.CSSProperties = {
   minWidth: 220,
-  padding: "10px 12px",
+  height: 42,
+  padding: "8px 12px",
   borderRadius: 10,
   border: "1px solid #d1d5db",
   background: "#fff",
+  color: "#111827",
+  WebkitTextFillColor: "#111827",
   fontSize: 14,
+  lineHeight: "20px",
+  appearance: "auto",
 };
 
 const monthButtonStyle: React.CSSProperties = {
