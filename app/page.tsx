@@ -984,9 +984,9 @@ export default async function Home({ searchParams }: PageProps) {
 
         <DetailsSection title="View Product Type details">
           <SimpleTable
-            title="Top Product Types"
-            rows={selectedMonth.top_product_types || []}
-            labelKey="ProductType"
+            title="Top Countries"
+            rows={selectedMonth.top_countries || []}
+            labelKey="DeliveryCountry"
           />
         </DetailsSection>
 
