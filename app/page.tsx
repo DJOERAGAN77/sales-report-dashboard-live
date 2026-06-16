@@ -1,3 +1,6 @@
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 type Kpi = {
   Sales?: number | null;
   Cost?: number | null;
@@ -54,6 +57,9 @@ async function getSnapshot(): Promise<SnapshotData> {
 
   const response = await fetch(snapshotUrl, {
     cache: "no-store",
+    next: {
+      revalidate: 0,
+    },
   });
 
   if (!response.ok) {
@@ -736,11 +742,13 @@ function SimpleTable({
   rows: Record<string, any>[];
   labelKey: string;
 }) {
+  const displayRows = rows.slice(0, 20);
+
   return (
     <section style={sectionStyle}>
       <h2 style={sectionTitleStyle}>{title}</h2>
 
-      {rows.length === 0 ? (
+      {displayRows.length === 0 ? (
         <p style={{ color: "#777" }}>No data available.</p>
       ) : (
         <div style={{ overflowX: "auto" }}>
@@ -754,21 +762,32 @@ function SimpleTable({
                 <th style={thRightStyle}>Quantity</th>
               </tr>
             </thead>
+
             <tbody>
-              {rows.slice(0, 20).map((row, index) => {
+              {displayRows.map((row, index) => {
                 const rowLabel = String(row[labelKey] || `row-${index}`);
 
                 return (
                   <tr key={index}>
-                    {columns.map((col) => (
-                      <td key={col} style={col === "Orders" ? tdRightStyle : tdStyle}>
-                        {col === "Orders" ? (
-                          <OrderNumbersCell row={row} label={rowLabel} />
-                        ) : (
-                          formatTableValue(row[col], col)
-                        )}
-                      </td>
-                    ))}
+                    <td style={tdStyle}>
+                      {String(row[labelKey] || "-")}
+                    </td>
+
+                    <td style={tdRightStyle}>
+                      {formatMoney(row.Sales)}
+                    </td>
+
+                    <td style={tdRightStyle}>
+                      {formatMoney(row.GrossProfit)}
+                    </td>
+
+                    <td style={tdRightStyle}>
+                      <OrderNumbersCell row={row} label={rowLabel} />
+                    </td>
+
+                    <td style={tdRightStyle}>
+                      {formatNumber(row.Quantity)}
+                    </td>
                   </tr>
                 );
               })}
