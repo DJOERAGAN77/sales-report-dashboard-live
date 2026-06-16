@@ -694,7 +694,7 @@ function SimpleTable({
               </tr>
             </thead>
             <tbody>
-              {rows.slice(0, 10).map((row, index) => (
+              {rows.slice(0, 20).map((row, index) => (
                 <tr key={`${title}-${index}`}>
                   <td style={tdStyle}>{String(row[labelKey] ?? "-")}</td>
                   <td style={tdRightStyle}>{formatMoney(row.Sales)}</td>
