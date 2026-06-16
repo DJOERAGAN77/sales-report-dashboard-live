@@ -982,7 +982,7 @@ export default async function Home({ searchParams }: PageProps) {
           labelKey="DeliveryCountry"
         />
 
-        <DetailsSection title="View Product Type details">
+        <DetailsSection title="View Country details">
           <SimpleTable
             title="Top Countries"
             rows={selectedMonth.top_countries || []}
