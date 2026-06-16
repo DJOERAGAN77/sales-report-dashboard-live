@@ -666,6 +666,67 @@ function HorizontalBarChartSection({
   );
 }
 
+function csvDownloadHref(orderNumbers: string[]) {
+  const csvContent = ["OrderNumber", ...orderNumbers].join("\n");
+
+  return `data:text/csv;charset=utf-8,${encodeURIComponent(csvContent)}`;
+}
+
+function safeFileName(value: string) {
+  return String(value || "orders")
+    .replace(/[^a-z0-9-_]+/gi, "_")
+    .replace(/_+/g, "_")
+    .replace(/^_|_$/g, "");
+}
+
+function OrderNumbersCell({
+  row,
+  label,
+}: {
+  row: Record<string, any>;
+  label: string;
+}) {
+  const orderNumbers = Array.isArray(row.OrderNumbers)
+    ? row.OrderNumbers.map((item: any) => String(item))
+    : [];
+
+  const orderCount = Number(row.Orders || orderNumbers.length || 0);
+
+  if (orderNumbers.length === 0) {
+    return <>{formatNumber(orderCount)}</>;
+  }
+
+  return (
+    <details style={orderDetailsStyle}>
+      <summary style={orderSummaryStyle}>
+        {formatNumber(orderCount)}
+      </summary>
+
+      <div style={orderPanelStyle}>
+        <div style={orderPanelHeaderStyle}>
+          <strong>{formatNumber(orderNumbers.length)} order number(s)</strong>
+
+          <a
+            href={csvDownloadHref(orderNumbers)}
+            download={`order_numbers_${safeFileName(label)}.csv`}
+            style={downloadLinkStyle}
+          >
+            Download CSV
+          </a>
+        </div>
+
+        <div style={orderListStyle}>
+          {orderNumbers.map((orderNumber) => (
+            <div key={orderNumber} style={orderNumberStyle}>
+              {orderNumber}
+            </div>
+          ))}
+        </div>
+      </div>
+    </details>
+  );
+}
+
 function SimpleTable({
   title,
   rows,
@@ -694,15 +755,23 @@ function SimpleTable({
               </tr>
             </thead>
             <tbody>
-              {rows.slice(0, 20).map((row, index) => (
-                <tr key={`${title}-${index}`}>
-                  <td style={tdStyle}>{String(row[labelKey] ?? "-")}</td>
-                  <td style={tdRightStyle}>{formatMoney(row.Sales)}</td>
-                  <td style={tdRightStyle}>{formatMoney(row.GrossProfit)}</td>
-                  <td style={tdRightStyle}>{formatNumber(row.Orders)}</td>
-                  <td style={tdRightStyle}>{formatNumber(row.Quantity)}</td>
-                </tr>
-              ))}
+              {rows.slice(0, 20).map((row, index) => {
+                const rowLabel = String(row[labelKey] || `row-${index}`);
+
+                return (
+                  <tr key={index}>
+                    {columns.map((col) => (
+                      <td key={col} style={col === "Orders" ? tdRightStyle : tdStyle}>
+                        {col === "Orders" ? (
+                          <OrderNumbersCell row={row} label={rowLabel} />
+                        ) : (
+                          formatTableValue(row[col], col)
+                        )}
+                      </td>
+                    ))}
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>
@@ -1412,4 +1481,61 @@ const detailsHeaderStyle: React.CSSProperties = {
   cursor: "pointer",
   fontWeight: 700,
   color: "#111827",
+};
+
+const orderDetailsStyle: React.CSSProperties = {
+  position: "relative",
+};
+
+const orderSummaryStyle: React.CSSProperties = {
+  cursor: "pointer",
+  color: "#2563eb",
+  fontWeight: 700,
+  listStyle: "none",
+};
+
+const orderPanelStyle: React.CSSProperties = {
+  marginTop: 10,
+  minWidth: 260,
+  maxWidth: 420,
+  maxHeight: 360,
+  overflow: "hidden",
+  border: "1px solid #e5e7eb",
+  borderRadius: 12,
+  background: "#fff",
+  boxShadow: "0 10px 25px rgba(0,0,0,0.12)",
+  padding: 12,
+  textAlign: "left",
+};
+
+const orderPanelHeaderStyle: React.CSSProperties = {
+  display: "flex",
+  justifyContent: "space-between",
+  alignItems: "center",
+  gap: 10,
+  marginBottom: 10,
+};
+
+const downloadLinkStyle: React.CSSProperties = {
+  fontSize: 12,
+  fontWeight: 700,
+  color: "#2563eb",
+  textDecoration: "none",
+};
+
+const orderListStyle: React.CSSProperties = {
+  maxHeight: 260,
+  overflowY: "auto",
+  display: "grid",
+  gridTemplateColumns: "repeat(auto-fit, minmax(110px, 1fr))",
+  gap: 6,
+};
+
+const orderNumberStyle: React.CSSProperties = {
+  padding: "6px 8px",
+  borderRadius: 8,
+  background: "#f9fafb",
+  border: "1px solid #eef0f3",
+  fontSize: 12,
+  fontFamily: "monospace",
 };
