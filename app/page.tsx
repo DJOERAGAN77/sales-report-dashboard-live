@@ -1684,9 +1684,9 @@ export default async function Home({ searchParams }: PageProps) {
 
   return (
     <main style={pageStyle}>
+      <MiniAnchorNav />
       <div style={containerStyle}>
-        <div style={stickyHeaderStyle}>
-          <div style={headerRowStyle}>
+        <div style={headerRowStyle}>
           <div>
             <p style={eyebrowStyle}>Sales Report Live</p>
             <h1 style={h1Style}>Management Dashboard</h1>
@@ -1705,10 +1705,9 @@ export default async function Home({ searchParams }: PageProps) {
               Sales orders are recorded based on orders with open &amp; partial status.
             </p>
           </div>
-          </div>
+        </div>
 
-          <div style={stickyControlRowStyle}>
-            <form style={monthSelectorStyle}>
+        <form style={monthSelectorStyle}>
           <label style={monthSelectorLabelStyle} htmlFor="month">
             Select report month
           </label>
@@ -1729,13 +1728,7 @@ export default async function Home({ searchParams }: PageProps) {
           <button type="submit" style={monthButtonStyle}>
             View report
           </button>
-            </form>
-
-            <MiniAnchorNav />
-          </div>
-        </div>
-
-        <div style={fixedHeaderSpacerStyle} />
+        </form>
 
         <div id="summary">
           <ExecutiveSummary
@@ -1903,7 +1896,7 @@ export default async function Home({ searchParams }: PageProps) {
 const pageStyle: React.CSSProperties = {
   minHeight: "100vh",
   background: "#f7f7f8",
-  padding: "18px 32px 32px",
+  padding: "32px 32px 32px 220px",
   fontFamily: "Arial, sans-serif",
   color: "#111",
 };
@@ -1913,38 +1906,12 @@ const containerStyle: React.CSSProperties = {
   margin: "0 auto",
 };
 
-const stickyHeaderStyle: React.CSSProperties = {
-  position: "fixed",
-  top: 0,
-  left: "50%",
-  transform: "translateX(-50%)",
-  zIndex: 1000,
-  width: "calc(100% - 32px)",
-  maxWidth: 1200,
-  background: "#f7f7f8",
-  padding: "8px 0 10px",
-  borderBottom: "1px solid #e5e7eb",
-  boxShadow: "0 4px 14px rgba(15, 23, 42, 0.08)",
-};
-
-const fixedHeaderSpacerStyle: React.CSSProperties = {
-  height: 156,
-};
-
 const headerRowStyle: React.CSSProperties = {
   display: "flex",
   justifyContent: "space-between",
-  gap: 16,
-  alignItems: "center",
+  gap: 24,
+  alignItems: "flex-start",
   flexWrap: "wrap",
-};
-
-const stickyControlRowStyle: React.CSSProperties = {
-  display: "flex",
-  alignItems: "center",
-  gap: 12,
-  flexWrap: "wrap",
-  marginTop: 10,
 };
 
 const eyebrowStyle: React.CSSProperties = {
@@ -1954,14 +1921,14 @@ const eyebrowStyle: React.CSSProperties = {
 };
 
 const h1Style: React.CSSProperties = {
-  margin: "2px 0 0",
-  fontSize: 28,
-  lineHeight: 1.05,
+  margin: "8px 0 0",
+  fontSize: 40,
+  lineHeight: 1.1,
 };
 
 const mutedStyle: React.CSSProperties = {
   color: "#666",
-  marginTop: 6,
+  marginTop: 12,
 };
 
 const smallMutedStyle: React.CSSProperties = {
@@ -1973,32 +1940,39 @@ const smallMutedStyle: React.CSSProperties = {
 const statusBoxStyle: React.CSSProperties = {
   background: "#fff",
   border: "1px solid #e6e6e6",
-  borderRadius: 12,
-  padding: "10px 14px",
-  minWidth: 280,
+  borderRadius: 16,
+  padding: 16,
+  minWidth: 240,
   boxShadow: "0 1px 4px rgba(0,0,0,0.05)",
 };
 
 const anchorNavStyle: React.CSSProperties = {
+  position: "fixed",
+  top: 32,
+  left: 24,
+  zIndex: 40,
+  width: 170,
   display: "flex",
-  flexWrap: "wrap",
+  flexDirection: "column",
   gap: 8,
-  margin: 0,
-  padding: 0,
-  background: "transparent",
+  padding: 12,
+  background: "#fff",
+  border: "1px solid #e5e7eb",
+  borderRadius: 16,
+  boxShadow: "0 1px 6px rgba(15, 23, 42, 0.08)",
 };
 
 const anchorLinkStyle: React.CSSProperties = {
-  display: "inline-flex",
+  display: "flex",
   alignItems: "center",
-  padding: "7px 11px",
-  borderRadius: 999,
-  background: "#fff",
-  border: "1px solid #e5e7eb",
+  padding: "8px 10px",
+  borderRadius: 10,
+  background: "#f9fafb",
+  border: "1px solid #eef2f7",
   color: "#111827",
   textDecoration: "none",
   fontSize: 13,
-  boxShadow: "0 1px 3px rgba(0,0,0,0.04)",
+  boxShadow: "none",
 };
 
 const sectionStyle: React.CSSProperties = {
@@ -2184,16 +2158,16 @@ const barValueStyle: React.CSSProperties = {
 };
 
 const monthSelectorStyle: React.CSSProperties = {
-  margin: 0,
+  marginTop: 28,
   display: "flex",
-  gap: 8,
+  gap: 12,
   alignItems: "center",
   flexWrap: "wrap",
-  background: "transparent",
-  border: "none",
-  borderRadius: 0,
-  padding: 0,
-  boxShadow: "none",
+  background: "#fff",
+  border: "1px solid #e5e5e5",
+  borderRadius: 16,
+  padding: 16,
+  boxShadow: "0 1px 4px rgba(0,0,0,0.06)",
 };
 
 const monthSelectorLabelStyle: React.CSSProperties = {
@@ -2203,8 +2177,8 @@ const monthSelectorLabelStyle: React.CSSProperties = {
 };
 
 const monthSelectStyle: React.CSSProperties = {
-  minWidth: 180,
-  height: 38,
+  minWidth: 220,
+  height: 42,
   padding: "8px 12px",
   borderRadius: 10,
   border: "1px solid #d1d5db",
