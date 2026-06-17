@@ -258,7 +258,7 @@ function growthPct(current?: number | null, previous?: number | null) {
 function formatGrowth(current?: number | null, previous?: number | null) {
   const growth = growthPct(current, previous);
 
-  if (growth === null || Number.isNaN(growth)) return "vs LY unavailable";
+  if (growth === null || Number.isNaN(growth)) return null;
 
   const sign = growth >= 0 ? "+" : "";
 
@@ -283,11 +283,13 @@ function KpiCard({
         ? formatPercent(value)
         : formatNumber(value);
 
+  const growthText = formatGrowth(value, previous);
+
   return (
     <div style={cardStyle}>
       <p style={labelStyle}>{label}</p>
       <h2 style={valueStyle}>{formattedValue}</h2>
-      <p style={deltaStyle}>{formatGrowth(value, previous)}</p>
+      {growthText && <p style={deltaStyle}>{growthText}</p>}
     </div>
   );
 }
@@ -1106,9 +1108,11 @@ function CreditClaimDocumentTypeBlock({
 function CreditClaimSection({
   creditClaim,
   selectedMonthKey,
+  selectedSalesMonth,
 }: {
   creditClaim?: CreditClaimSnapshot;
   selectedMonthKey?: string;
+  selectedSalesMonth?: MonthSnapshot;
 }) {
   if (!creditClaim?.success) {
     return null;
@@ -1128,10 +1132,20 @@ function CreditClaimSection({
 
   const current = selectedCreditClaimMonth.current_month || {};
   const ytd = creditClaim.ytd || {};
+  const selectedSales = Number(selectedSalesMonth?.current_month_kpi?.Sales || 0);
+  const creditClaimRateOfSales = selectedSales > 0
+    ? (Number(current.total_amount || 0) / selectedSales) * 100
+    : null;
+
+  const selectedTrendMonth = String(
+    selectedMonthKey ||
+    creditClaim.latest_month ||
+    ""
+  );
 
   const trendRows = (creditClaim.monthly_trend || [])
-    .filter((row) => String(row.YearMonth || "") <= String(selectedMonthKey || creditClaim.latest_month || ""))
-    .slice(-24);
+    .filter((row) => String(row.YearMonth || "") <= selectedTrendMonth)
+    .slice(-12);
 
   const documentSections = selectedCreditClaimMonth.document_type_sections || {};
   const creditNoteSection = documentSections["Credit Note"];
@@ -1178,6 +1192,12 @@ function CreditClaimSection({
           <KpiCard
             label="Total CN / Claim Orders"
             value={current.orders}
+          />
+
+          <KpiCard
+            label="CN / Claim % of Sales"
+            value={creditClaimRateOfSales}
+            type="percent"
           />
         </div>
       </section>
@@ -1544,6 +1564,7 @@ export default async function Home({ searchParams }: PageProps) {
         <CreditClaimSection
           creditClaim={snapshot.credit_claim}
           selectedMonthKey={selectedMonthKey}
+          selectedSalesMonth={selectedMonth}
         />
       </div>
     </main>
