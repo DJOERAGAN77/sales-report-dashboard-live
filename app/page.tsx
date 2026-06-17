@@ -29,6 +29,45 @@ type MonthSnapshot = {
   comparison_by_channel: Record<string, any>[];
 };
 
+type CreditClaimMonthPayload = {
+  year_month?: string;
+  current_month?: {
+    total_amount?: number | null;
+    orders?: number | null;
+    clients?: number | null;
+    lines?: number | null;
+    quantity?: number | null;
+    credit_note_amount?: number | null;
+    credit_note_orders?: number | null;
+    claim_amount?: number | null;
+    claim_orders?: number | null;
+  };
+  top_reasons?: Record<string, any>[];
+  top_clients?: Record<string, any>[];
+  top_countries?: Record<string, any>[];
+  top_channels?: Record<string, any>[];
+  top_product_types?: Record<string, any>[];
+  data_quality?: Record<string, any>[];
+};
+
+type CreditClaimSnapshot = {
+  success?: boolean;
+  latest_month?: string | null;
+  available_months?: string[];
+  monthly_trend?: Record<string, any>[];
+  current_month?: CreditClaimMonthPayload["current_month"];
+  ytd?: {
+    year?: number | null;
+    credit_note_amount?: number | null;
+    credit_note_orders?: number | null;
+    claim_amount?: number | null;
+    claim_orders?: number | null;
+    total_amount?: number | null;
+    orders?: number | null;
+  };
+  months?: Record<string, CreditClaimMonthPayload>;
+};
+
 type SnapshotData = {
   success?: boolean;
   source?: string;
@@ -37,6 +76,7 @@ type SnapshotData = {
   available_months?: string[];
   monthly_trend?: Record<string, any>[];
   months?: Record<string, MonthSnapshot>;
+  credit_claim?: CreditClaimSnapshot;
 };
 
 type PageProps = {
@@ -814,6 +854,227 @@ function DetailsSection({
   );
 }
 
+function CreditClaimSummaryTable({
+  title,
+  rows,
+  labelKey,
+}: {
+  title: string;
+  rows: Record<string, any>[];
+  labelKey: string;
+}) {
+  const displayRows = (rows || []).slice(0, 10);
+
+  return (
+    <section style={sectionStyle}>
+      <h2 style={sectionTitleStyle}>{title}</h2>
+
+      {displayRows.length === 0 ? (
+        <p style={mutedStyle}>No data available.</p>
+      ) : (
+        <div style={tableWrapperStyle}>
+          <table style={tableStyle}>
+            <thead>
+              <tr>
+                <th style={thStyle}>{labelKey}</th>
+                <th style={thRightStyle}>Amount</th>
+                <th style={thRightStyle}>Orders</th>
+                <th style={thRightStyle}>Lines</th>
+                <th style={thRightStyle}>Quantity</th>
+              </tr>
+            </thead>
+
+            <tbody>
+              {displayRows.map((row, index) => (
+                <tr key={index}>
+                  <td style={tdStyle}>{String(row[labelKey] || "-")}</td>
+                  <td style={tdRightStyle}>{formatMoney(row.TotalAmount)}</td>
+                  <td style={tdRightStyle}>{formatNumber(row.Orders)}</td>
+                  <td style={tdRightStyle}>{formatNumber(row.Lines)}</td>
+                  <td style={tdRightStyle}>{formatNumber(row.Quantity)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </section>
+  );
+}
+
+function CreditClaimDataQualityTable({
+  rows,
+}: {
+  rows: Record<string, any>[];
+}) {
+  const displayRows = rows || [];
+
+  return (
+    <DetailsSection title="View Credit Note & Claim Data Quality">
+      {displayRows.length === 0 ? (
+        <p style={mutedStyle}>No Credit Note & Claim data quality issues.</p>
+      ) : (
+        <div style={tableWrapperStyle}>
+          <table style={tableStyle}>
+            <thead>
+              <tr>
+                <th style={thStyle}>Issue</th>
+                <th style={thRightStyle}>Rows</th>
+                <th style={thStyle}>Severity</th>
+              </tr>
+            </thead>
+
+            <tbody>
+              {displayRows.map((row, index) => (
+                <tr key={index}>
+                  <td style={tdStyle}>{String(row.Issue || "-")}</td>
+                  <td style={tdRightStyle}>{formatNumber(row.Rows)}</td>
+                  <td style={tdStyle}>{String(row.Severity || "-")}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </DetailsSection>
+  );
+}
+
+function CreditClaimSection({
+  creditClaim,
+  selectedMonthKey,
+}: {
+  creditClaim?: CreditClaimSnapshot;
+  selectedMonthKey?: string;
+}) {
+  if (!creditClaim?.success) {
+    return null;
+  }
+
+  const months = creditClaim.months || {};
+  const selectedCreditClaimMonth =
+    selectedMonthKey && months[selectedMonthKey]
+      ? months[selectedMonthKey]
+      : creditClaim.latest_month && months[creditClaim.latest_month]
+        ? months[creditClaim.latest_month]
+        : undefined;
+
+  if (!selectedCreditClaimMonth) {
+    return null;
+  }
+
+  const current = selectedCreditClaimMonth.current_month || {};
+  const ytd = creditClaim.ytd || {};
+
+  const trendRows = (creditClaim.monthly_trend || [])
+    .filter((row) => String(row.YearMonth || "") <= String(selectedMonthKey || creditClaim.latest_month || ""))
+    .slice(-24);
+
+  return (
+    <>
+      <section style={sectionStyle}>
+        <h2 style={sectionTitleStyle}>Credit Note & Claim</h2>
+
+        <p style={mutedStyle}>
+          Credit Note and Claim data from warehouse 03B. Missing Sales Channel is ignored here because some Credit Note / Claim documents do not have Sales Channel filled in Exact.
+        </p>
+
+        <div style={gridStyle}>
+          <KpiCard
+            label="Credit Note Amount"
+            value={current.credit_note_amount}
+            type="money"
+          />
+
+          <KpiCard
+            label="Claim Amount"
+            value={current.claim_amount}
+            type="money"
+          />
+
+          <KpiCard
+            label="Credit Note Orders"
+            value={current.credit_note_orders}
+          />
+
+          <KpiCard
+            label="Claim Orders"
+            value={current.claim_orders}
+          />
+
+          <KpiCard
+            label="Total CN / Claim Amount"
+            value={current.total_amount}
+            type="money"
+          />
+
+          <KpiCard
+            label="Total CN / Claim Orders"
+            value={current.orders}
+          />
+        </div>
+      </section>
+
+      <section style={sectionStyle}>
+        <h2 style={sectionTitleStyle}>Credit Note & Claim YTD</h2>
+
+        <div style={gridStyle}>
+          <KpiCard
+            label="YTD Credit Note Amount"
+            value={ytd.credit_note_amount}
+            type="money"
+          />
+
+          <KpiCard
+            label="YTD Claim Amount"
+            value={ytd.claim_amount}
+            type="money"
+          />
+
+          <KpiCard
+            label="YTD Credit Note Orders"
+            value={ytd.credit_note_orders}
+          />
+
+          <KpiCard
+            label="YTD Claim Orders"
+            value={ytd.claim_orders}
+          />
+        </div>
+      </section>
+
+      <MiniLineChart
+        title="Credit Note & Claim Monthly Amount Trend"
+        rows={trendRows}
+        xKey="YearMonth"
+        yKey="TotalAmount"
+      />
+
+      <CreditClaimSummaryTable
+        title="Top Credit Note & Claim Reasons"
+        rows={selectedCreditClaimMonth.top_reasons || []}
+        labelKey="ReasonCategory"
+      />
+
+      <CreditClaimSummaryTable
+        title="Top Credit Note & Claim Clients"
+        rows={selectedCreditClaimMonth.top_clients || []}
+        labelKey="ClientName"
+      />
+
+      <CreditClaimSummaryTable
+        title="Top Credit Note & Claim Product Types"
+        rows={selectedCreditClaimMonth.top_product_types || []}
+        labelKey="ProductType"
+      />
+
+      <CreditClaimDataQualityTable
+        rows={selectedCreditClaimMonth.data_quality || []}
+      />
+    </>
+  );
+}
+
 export default async function Home({ searchParams }: PageProps) {
   const snapshot = await getSnapshot();
   const params = searchParams ? await searchParams : {};
@@ -993,6 +1254,11 @@ export default async function Home({ searchParams }: PageProps) {
         />
 
         <DataQualityNotice selectedMonth={selectedMonth} />
+
+        <CreditClaimSection
+          creditClaim={snapshot.credit_claim}
+          selectedMonthKey={selectedMonthKey}
+        />
 
         <section style={sectionStyle}>
           <h2 style={sectionTitleStyle}>Monthly Performance</h2>
@@ -1179,6 +1445,13 @@ const statusBoxStyle: React.CSSProperties = {
 
 const sectionStyle: React.CSSProperties = {
   marginTop: 32,
+};
+
+const tableWrapperStyle: React.CSSProperties = {
+  overflowX: "auto",
+  background: "#fff",
+  border: "1px solid #e6e6e6",
+  borderRadius: 16,
 };
 
 const sectionTitleStyle: React.CSSProperties = {
