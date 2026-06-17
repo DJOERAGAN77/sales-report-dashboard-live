@@ -700,6 +700,244 @@ function MiniLineChart({
   );
 }
 
+
+function MiniDualLineChart({
+  title,
+  rows,
+  xKey,
+  firstKey,
+  firstLabel,
+  secondKey,
+  secondLabel,
+}: {
+  title: string;
+  rows: Record<string, any>[];
+  xKey: string;
+  firstKey: string;
+  firstLabel: string;
+  secondKey: string;
+  secondLabel: string;
+}) {
+  const cleanRows = rows
+    .filter((row) => row[xKey])
+    .map((row) => {
+      const label = formatMonthYearLabel(String(row[xKey]));
+      const parts = label.split(" ");
+      const yearLabel = parts.length > 1 ? parts[parts.length - 1] : "";
+      const monthLabel = parts.length > 1 ? parts.slice(0, -1).join(" ") : label;
+
+      return {
+        label,
+        monthLabel,
+        yearLabel,
+        firstValue: Number(row[firstKey]) || 0,
+        secondValue: Number(row[secondKey]) || 0,
+      };
+    });
+
+  if (cleanRows.length === 0) {
+    return (
+      <section style={sectionStyle}>
+        <h2 style={sectionTitleStyle}>{title}</h2>
+        <p style={smallMutedStyle}>No chart data available.</p>
+      </section>
+    );
+  }
+
+  const width = 1000;
+  const height = 390;
+  const paddingLeft = 80;
+  const paddingRight = 35;
+  const paddingTop = 55;
+  const paddingBottom = 95;
+
+  const maxRawValue = Math.max(
+    ...cleanRows.flatMap((row) => [row.firstValue, row.secondValue]),
+    1
+  );
+  const paddedMaxValue = maxRawValue * 1.15;
+  const roughStep = paddedMaxValue / 5;
+  const magnitude = Math.pow(10, Math.floor(Math.log10(Math.max(roughStep, 1))));
+  const normalizedStep = roughStep / magnitude;
+
+  let niceStepMultiplier = 1;
+
+  if (normalizedStep <= 1) {
+    niceStepMultiplier = 1;
+  } else if (normalizedStep <= 2) {
+    niceStepMultiplier = 2;
+  } else if (normalizedStep <= 5) {
+    niceStepMultiplier = 5;
+  } else {
+    niceStepMultiplier = 10;
+  }
+
+  const tickStep = Math.max(niceStepMultiplier * magnitude, 1);
+  const axisMax = Math.max(tickStep, Math.ceil(paddedMaxValue / tickStep) * tickStep);
+
+  const tickValues: number[] = [];
+
+  for (let value = 0; value <= axisMax + tickStep * 0.5; value += tickStep) {
+    tickValues.push(value);
+  }
+
+  const plotWidth = width - paddingLeft - paddingRight;
+  const plotHeight = height - paddingTop - paddingBottom;
+
+  const points = cleanRows.map((row, index) => {
+    const x =
+      cleanRows.length === 1
+        ? paddingLeft + plotWidth / 2
+        : paddingLeft + (index / (cleanRows.length - 1)) * plotWidth;
+
+    const firstY =
+      paddingTop +
+      plotHeight -
+      (row.firstValue / (axisMax || 1)) * plotHeight;
+
+    const secondY =
+      paddingTop +
+      plotHeight -
+      (row.secondValue / (axisMax || 1)) * plotHeight;
+
+    return { ...row, x, firstY, secondY };
+  });
+
+  const firstPointString = points.map((point) => `${point.x},${point.firstY}`).join(" ");
+  const secondPointString = points.map((point) => `${point.x},${point.secondY}`).join(" ");
+
+  return (
+    <section style={sectionStyle}>
+      <h2 style={sectionTitleStyle}>{title}</h2>
+
+      <div style={chartCardStyle}>
+        <div style={chartLegendStyle}>
+          <span style={chartLegendItemStyle}>
+            <span style={{ ...legendDotStyle, background: "#2563eb" }} />
+            {firstLabel}
+          </span>
+          <span style={chartLegendItemStyle}>
+            <span style={{ ...legendDotStyle, background: "#f97316" }} />
+            {secondLabel}
+          </span>
+        </div>
+
+        <svg
+          viewBox={`0 0 ${width} ${height}`}
+          style={{ width: "100%", height: "auto" }}
+          role="img"
+        >
+          {tickValues.map((tick) => {
+            const y =
+              paddingTop +
+              plotHeight -
+              (tick / (axisMax || 1)) * plotHeight;
+
+            return (
+              <g key={`tick-${tick}`}>
+                <line
+                  x1={paddingLeft}
+                  y1={y}
+                  x2={width - paddingRight}
+                  y2={y}
+                  stroke="#e5e7eb"
+                  strokeWidth="1"
+                />
+                <text
+                  x={paddingLeft - 12}
+                  y={y + 4}
+                  textAnchor="end"
+                  fontSize="12"
+                  fill="#6b7280"
+                >
+                  {formatCompactMoney(tick)}
+                </text>
+              </g>
+            );
+          })}
+
+          <line
+            x1={paddingLeft}
+            y1={paddingTop}
+            x2={paddingLeft}
+            y2={height - paddingBottom}
+            stroke="#d1d5db"
+            strokeWidth="1"
+          />
+          <line
+            x1={paddingLeft}
+            y1={height - paddingBottom}
+            x2={width - paddingRight}
+            y2={height - paddingBottom}
+            stroke="#d1d5db"
+            strokeWidth="1"
+          />
+
+          <polyline
+            points={firstPointString}
+            fill="none"
+            stroke="#2563eb"
+            strokeWidth="3"
+          />
+
+          <polyline
+            points={secondPointString}
+            fill="none"
+            stroke="#f97316"
+            strokeWidth="3"
+          />
+
+          {points.map((point, index) => (
+            <g key={`${point.label}-${index}`}>
+              <circle cx={point.x} cy={point.firstY} r="5" fill="#2563eb" />
+              <circle cx={point.x} cy={point.secondY} r="5" fill="#f97316" />
+
+              <text
+                x={point.x}
+                y={point.firstY - 12}
+                textAnchor="middle"
+                fontSize="12"
+                fontWeight="700"
+                fill="#111827"
+              >
+                {formatCompactMoney(point.firstValue)}
+              </text>
+
+              <text
+                x={point.x}
+                y={point.secondY + 22}
+                textAnchor="middle"
+                fontSize="12"
+                fontWeight="700"
+                fill="#111827"
+              >
+                {formatCompactMoney(point.secondValue)}
+              </text>
+
+              <text
+                x={point.x}
+                y={height - 52}
+                textAnchor="middle"
+                fontSize="12"
+                fill="#6b7280"
+              >
+                <tspan x={point.x} dy="0">
+                  {point.monthLabel}
+                </tspan>
+                {point.yearLabel && (
+                  <tspan x={point.x} dy="16">
+                    {point.yearLabel}
+                  </tspan>
+                )}
+              </text>
+            </g>
+          ))}
+        </svg>
+      </div>
+    </section>
+  );
+}
+
 function HorizontalBarChartSection({
   title,
   rows,
@@ -935,14 +1173,20 @@ function CreditClaimSummaryTable({
             </thead>
 
             <tbody>
-              {displayRows.map((row, index) => (
-                <tr key={index}>
-                  <td style={tdStyle}>{String(row[labelKey] || "-")}</td>
-                  <td style={tdRightStyle}>{formatMoney(row.TotalAmount)}</td>
-                  <td style={tdRightStyle}>{formatNumber(row.Orders)}</td>
-                  <td style={tdRightStyle}>{formatNumber(row.Quantity)}</td>
-                </tr>
-              ))}
+              {displayRows.map((row, index) => {
+                const rowLabel = `${title}_${String(row[labelKey] || index)}`;
+
+                return (
+                  <tr key={index}>
+                    <td style={tdStyle}>{String(row[labelKey] || "-")}</td>
+                    <td style={tdRightStyle}>{formatMoney(row.TotalAmount)}</td>
+                    <td style={tdRightStyle}>
+                      <OrderNumbersCell row={row} label={rowLabel} />
+                    </td>
+                    <td style={tdRightStyle}>{formatNumber(row.Quantity)}</td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>
@@ -978,19 +1222,25 @@ function CreditClaimSkuTable({
             </thead>
 
             <tbody>
-              {displayRows.map((row, index) => (
-                <tr key={index}>
-                  <td style={tdStyle}>
-                    <strong>{String(row.Item || row.SKU || "-")}</strong>
-                  </td>
-                  <td style={tdStyle}>
-                    {String(row.ProductName || row.ItemDescription || "-")}
-                  </td>
-                  <td style={tdRightStyle}>{formatMoney(row.TotalAmount)}</td>
-                  <td style={tdRightStyle}>{formatNumber(row.Orders)}</td>
-                  <td style={tdRightStyle}>{formatNumber(row.Quantity)}</td>
-                </tr>
-              ))}
+              {displayRows.map((row, index) => {
+                const skuLabel = `${title}_${String(row.Item || row.SKU || index)}`;
+
+                return (
+                  <tr key={index}>
+                    <td style={tdStyle}>
+                      <strong>{String(row.Item || row.SKU || "-")}</strong>
+                    </td>
+                    <td style={tdStyle}>
+                      {String(row.ProductName || row.ItemDescription || "-")}
+                    </td>
+                    <td style={tdRightStyle}>{formatMoney(row.TotalAmount)}</td>
+                    <td style={tdRightStyle}>
+                      <OrderNumbersCell row={row} label={skuLabel} />
+                    </td>
+                    <td style={tdRightStyle}>{formatNumber(row.Quantity)}</td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>
@@ -1143,9 +1393,19 @@ function CreditClaimSection({
     ""
   );
 
-  const trendRows = (creditClaim.monthly_trend || [])
-    .filter((row) => String(row.YearMonth || "") <= selectedTrendMonth)
-    .slice(-12);
+  const trendRows = Object.keys(months)
+    .filter((yearMonth) => yearMonth <= selectedTrendMonth)
+    .sort()
+    .slice(-12)
+    .map((yearMonth) => {
+      const monthPayload = months[yearMonth]?.current_month || {};
+
+      return {
+        YearMonth: yearMonth,
+        CreditNoteAmount: Number(monthPayload.credit_note_amount || 0),
+        ClaimAmount: Number(monthPayload.claim_amount || 0),
+      };
+    });
 
   const documentSections = selectedCreditClaimMonth.document_type_sections || {};
   const creditNoteSection = documentSections["Credit Note"];
@@ -1230,11 +1490,14 @@ function CreditClaimSection({
         </div>
       </section>
 
-      <MiniLineChart
+      <MiniDualLineChart
         title="Credit Note & Claim Monthly Amount Trend"
         rows={trendRows}
         xKey="YearMonth"
-        yKey="TotalAmount"
+        firstKey="CreditNoteAmount"
+        firstLabel="Credit Note"
+        secondKey="ClaimAmount"
+        secondLabel="Claim"
       />
 
       <CreditClaimDocumentTypeBlock
@@ -1720,6 +1983,28 @@ const chartCardStyle: React.CSSProperties = {
   borderRadius: 16,
   padding: 20,
   boxShadow: "0 1px 4px rgba(0,0,0,0.06)",
+};
+
+const chartLegendStyle: React.CSSProperties = {
+  display: "flex",
+  gap: 16,
+  alignItems: "center",
+  marginBottom: 10,
+  fontSize: 13,
+  color: "#374151",
+};
+
+const chartLegendItemStyle: React.CSSProperties = {
+  display: "inline-flex",
+  gap: 8,
+  alignItems: "center",
+};
+
+const legendDotStyle: React.CSSProperties = {
+  width: 10,
+  height: 10,
+  borderRadius: "50%",
+  display: "inline-block",
 };
 
 const barRowStyle: React.CSSProperties = {
