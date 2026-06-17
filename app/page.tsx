@@ -62,6 +62,7 @@ type CreditClaimDocumentSection = {
   };
   top_reasons?: Record<string, any>[];
   top_clients?: Record<string, any>[];
+  top_channels?: Record<string, any>[];
   top_product_types?: Record<string, any>[];
   top_skus?: Record<string, any>[];
 };
@@ -270,11 +271,13 @@ function KpiCard({
   value,
   previous,
   type = "number",
+  tone = "default",
 }: {
   label: string;
   value?: number | null;
   previous?: number | null;
   type?: "money" | "number" | "percent";
+  tone?: "default" | "highlight";
 }) {
   const formattedValue =
     type === "money"
@@ -286,8 +289,8 @@ function KpiCard({
   const growthText = formatGrowth(value, previous);
 
   return (
-    <div style={cardStyle}>
-      <p style={labelStyle}>{label}</p>
+    <div style={tone === "highlight" ? highlightCardStyle : cardStyle}>
+      <p style={tone === "highlight" ? highlightLabelStyle : labelStyle}>{label}</p>
       <h2 style={valueStyle}>{formattedValue}</h2>
       {growthText && <p style={deltaStyle}>{growthText}</p>}
     </div>
@@ -1152,12 +1155,10 @@ function CreditClaimSummaryTable({
   rows: Record<string, any>[];
   labelKey: string;
 }) {
-  const displayRows = (rows || []).slice(0, 10);
+  const displayRows = (rows || []).slice(0, 20);
 
   return (
-    <section style={sectionStyle}>
-      <h2 style={sectionTitleStyle}>{title}</h2>
-
+    <DetailsSection title={title}>
       {displayRows.length === 0 ? (
         <p style={mutedStyle}>No data available.</p>
       ) : (
@@ -1191,7 +1192,7 @@ function CreditClaimSummaryTable({
           </table>
         </div>
       )}
-    </section>
+    </DetailsSection>
   );
 }
 
@@ -1342,6 +1343,12 @@ function CreditClaimDocumentTypeBlock({
       />
 
       <CreditClaimSummaryTable
+        title={`Top ${title} Sales Channels`}
+        rows={section.top_channels || []}
+        labelKey="SalesChannel"
+      />
+
+      <CreditClaimSummaryTable
         title={`Top ${title} Product Types`}
         rows={section.top_product_types || []}
         labelKey="ProductType"
@@ -1417,7 +1424,11 @@ function CreditClaimSection({
         <h2 style={sectionTitleStyle}>Credit Note & Claim</h2>
 
         <p style={mutedStyle}>
-          Credit Note and Claim data from warehouse 03B. Missing Sales Channel is ignored here because some Credit Note / Claim documents do not have Sales Channel filled in Exact.
+          Credit Note and Claim data from warehouse 03B.
+        </p>
+
+        <p style={creditClaimNoticeStyle}>
+          Missing Sales Channel is included as a separate group because it affects Credit Note / Claim analysis.
         </p>
 
         <div style={gridStyle}>
@@ -1442,22 +1453,27 @@ function CreditClaimSection({
             label="Claim Orders"
             value={current.claim_orders}
           />
+        </div>
 
+        <div style={highlightGridStyle}>
           <KpiCard
             label="Total CN / Claim Amount"
             value={current.total_amount}
             type="money"
+            tone="highlight"
           />
 
           <KpiCard
             label="Total CN / Claim Orders"
             value={current.orders}
+            tone="highlight"
           />
 
           <KpiCard
             label="CN / Claim % of Sales"
             value={creditClaimRateOfSales}
             type="percent"
+            tone="highlight"
           />
         </div>
       </section>
@@ -1514,6 +1530,32 @@ function CreditClaimSection({
         rows={selectedCreditClaimMonth.data_quality || []}
       />
     </>
+  );
+}
+
+
+function MiniAnchorNav() {
+  const links = [
+    { href: "#summary", label: "Summary" },
+    { href: "#data-quality", label: "Data Quality" },
+    { href: "#monthly", label: "Monthly" },
+    { href: "#ytd", label: "YTD" },
+    { href: "#trend", label: "Trend" },
+    { href: "#channels", label: "Channels" },
+    { href: "#countries", label: "Countries" },
+    { href: "#products", label: "Products" },
+    { href: "#clients", label: "Clients" },
+    { href: "#credit-claim", label: "CN / Claim" },
+  ];
+
+  return (
+    <nav style={anchorNavStyle} aria-label="Dashboard sections">
+      {links.map((link) => (
+        <a key={link.href} href={link.href} style={anchorLinkStyle}>
+          {link.label}
+        </a>
+      ))}
+    </nav>
   );
 }
 
@@ -1687,18 +1729,24 @@ export default async function Home({ searchParams }: PageProps) {
           </button>
         </form>
 
-        <ExecutiveSummary
+        <MiniAnchorNav />
+
+        <div id="summary">
+          <ExecutiveSummary
           selectedMonth={selectedMonth}
           current={current}
           previous={previous}
           currentYtd={currentYtd}
           previousYtd={previousYtd}
-        />
+          />
+        </div>
 
-        <DataQualityNotice selectedMonth={selectedMonth} />
+        <div id="data-quality">
+          <DataQualityNotice selectedMonth={selectedMonth} />
+        </div>
 
 
-        <section style={sectionStyle}>
+        <section id="monthly" style={sectionStyle}>
           <h2 style={sectionTitleStyle}>Monthly Performance</h2>
 
           {hasDataQualityIssue(selectedMonth, "Missing / Zero Cost") && (
@@ -1725,7 +1773,7 @@ export default async function Home({ searchParams }: PageProps) {
           rows={monthlyComparisonRows}
         />
 
-        <section style={sectionStyle}>
+        <section id="ytd" style={sectionStyle}>
           <h2 style={sectionTitleStyle}>YTD Performance</h2>
 
           <div style={gridStyle}>
@@ -1745,16 +1793,19 @@ export default async function Home({ searchParams }: PageProps) {
           rows={ytdComparisonRows}
         />
 
-        <MiniLineChart
+        <div id="trend">
+          <MiniLineChart
           title="Monthly Sales Trend — Last 12 Months"
           rows={(snapshot.monthly_trend || [])
             .filter((row) => String(row.YearMonth || "") <= String(selectedMonthKey || ""))
             .slice(-12)}
           xKey="YearMonth"
           yKey="Sales"
-        />
+          />
+        </div>
 
-        <HorizontalBarChartSection
+        <div id="channels">
+          <HorizontalBarChartSection
           title="Top Sales Channels by Sales"
           rows={selectedMonth.top_channels || []}
           labelKey="SalesChannel"
@@ -1767,8 +1818,10 @@ export default async function Home({ searchParams }: PageProps) {
             labelKey="SalesChannel"
           />
         </DetailsSection>
+        </div>
 
-        <HorizontalBarChartSection
+        <div id="countries">
+          <HorizontalBarChartSection
           title="Top Countries by Sales"
           rows={selectedMonth.top_countries || []}
           labelKey="DeliveryCountry"
@@ -1781,8 +1834,10 @@ export default async function Home({ searchParams }: PageProps) {
             labelKey="DeliveryCountry"
           />
         </DetailsSection>
+        </div>
 
-        <HorizontalBarChartSection
+        <div id="products">
+          <HorizontalBarChartSection
           title="Top Product Types by Sales"
           rows={selectedMonth.top_product_types || []}
           labelKey="ProductType"
@@ -1809,8 +1864,10 @@ export default async function Home({ searchParams }: PageProps) {
             labelKey="ProductName"
           />
         </DetailsSection>
+        </div>
 
-        <HorizontalBarChartSection
+        <div id="clients">
+          <HorizontalBarChartSection
           title="Top Clients by Sales"
           rows={selectedMonth.top_clients || []}
           labelKey="ClientName"
@@ -1823,12 +1880,15 @@ export default async function Home({ searchParams }: PageProps) {
             labelKey="ClientName"
           />
         </DetailsSection>
+        </div>
 
-        <CreditClaimSection
+        <div id="credit-claim">
+          <CreditClaimSection
           creditClaim={snapshot.credit_claim}
           selectedMonthKey={selectedMonthKey}
           selectedSalesMonth={selectedMonth}
-        />
+          />
+        </div>
       </div>
     </main>
   );
@@ -1887,6 +1947,32 @@ const statusBoxStyle: React.CSSProperties = {
   boxShadow: "0 1px 4px rgba(0,0,0,0.05)",
 };
 
+const anchorNavStyle: React.CSSProperties = {
+  position: "sticky",
+  top: 0,
+  zIndex: 20,
+  display: "flex",
+  flexWrap: "wrap",
+  gap: 8,
+  marginTop: 18,
+  marginBottom: 8,
+  padding: "10px 0",
+  background: "#f7f7f8",
+};
+
+const anchorLinkStyle: React.CSSProperties = {
+  display: "inline-flex",
+  alignItems: "center",
+  padding: "8px 12px",
+  borderRadius: 999,
+  background: "#fff",
+  border: "1px solid #e5e7eb",
+  color: "#111827",
+  textDecoration: "none",
+  fontSize: 13,
+  boxShadow: "0 1px 3px rgba(0,0,0,0.04)",
+};
+
 const sectionStyle: React.CSSProperties = {
   marginTop: 32,
 };
@@ -1917,10 +2003,37 @@ const cardStyle: React.CSSProperties = {
   boxShadow: "0 1px 4px rgba(0,0,0,0.06)",
 };
 
+const highlightCardStyle: React.CSSProperties = {
+  ...cardStyle,
+  background: "#0f172a",
+  border: "1px solid #0f172a",
+  color: "#fff",
+};
+
+const highlightGridStyle: React.CSSProperties = {
+  ...gridStyle,
+  marginTop: 16,
+};
+
+const creditClaimNoticeStyle: React.CSSProperties = {
+  marginTop: 12,
+  padding: "12px 14px",
+  borderRadius: 12,
+  background: "#fff7ed",
+  border: "1px solid #fed7aa",
+  color: "#9a3412",
+  fontSize: 14,
+};
+
 const labelStyle: React.CSSProperties = {
   margin: 0,
   color: "#777",
   fontSize: 13,
+};
+
+const highlightLabelStyle: React.CSSProperties = {
+  ...labelStyle,
+  color: "#cbd5e1",
 };
 
 const valueStyle: React.CSSProperties = {
