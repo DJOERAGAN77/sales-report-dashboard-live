@@ -1348,16 +1348,20 @@ function CreditClaimDocumentTypeBlock({
         labelKey="SalesChannel"
       />
 
-      <CreditClaimSummaryTable
-        title={`Top ${title} Product Types`}
-        rows={section.top_product_types || []}
-        labelKey="ProductType"
-      />
+      {title !== "Claim" && (
+        <>
+          <CreditClaimSummaryTable
+            title={`Top ${title} Product Types`}
+            rows={section.top_product_types || []}
+            labelKey="ProductType"
+          />
 
-      <CreditClaimSkuTable
-        title={`View Top ${title} SKUs`}
-        rows={section.top_skus || []}
-      />
+          <CreditClaimSkuTable
+            title={`View Top ${title} SKUs`}
+            rows={section.top_skus || []}
+          />
+        </>
+      )}
     </>
   );
 }
@@ -1537,7 +1541,6 @@ function CreditClaimSection({
 function MiniAnchorNav() {
   const links = [
     { href: "#summary", label: "Summary" },
-    { href: "#data-quality", label: "Data Quality" },
     { href: "#monthly", label: "Monthly" },
     { href: "#ytd", label: "YTD" },
     { href: "#trend", label: "Trend" },
@@ -1896,7 +1899,7 @@ export default async function Home({ searchParams }: PageProps) {
 const pageStyle: React.CSSProperties = {
   minHeight: "100vh",
   background: "#f7f7f8",
-  padding: "32px 32px 32px 220px",
+  padding: "32px 32px 32px 178px",
   fontFamily: "Arial, sans-serif",
   color: "#111",
 };
@@ -1949,13 +1952,13 @@ const statusBoxStyle: React.CSSProperties = {
 const anchorNavStyle: React.CSSProperties = {
   position: "fixed",
   top: 32,
-  left: 24,
+  left: 16,
   zIndex: 40,
-  width: 170,
+  width: 126,
   display: "flex",
   flexDirection: "column",
   gap: 8,
-  padding: 12,
+  padding: 10,
   background: "#fff",
   border: "1px solid #e5e7eb",
   borderRadius: 16,
@@ -1965,13 +1968,13 @@ const anchorNavStyle: React.CSSProperties = {
 const anchorLinkStyle: React.CSSProperties = {
   display: "flex",
   alignItems: "center",
-  padding: "8px 10px",
+  padding: "7px 9px",
   borderRadius: 10,
   background: "#f9fafb",
   border: "1px solid #eef2f7",
   color: "#111827",
   textDecoration: "none",
-  fontSize: 13,
+  fontSize: 12,
   boxShadow: "none",
 };
 
@@ -2262,7 +2265,7 @@ const miniTableStyle: React.CSSProperties = {
 
 const miniThStyle: React.CSSProperties = {
   textAlign: "left",
-  padding: "8px 10px",
+  padding: "7px 9px",
   borderBottom: "1px solid rgba(0,0,0,0.12)",
   fontSize: 13,
 };
@@ -2273,7 +2276,7 @@ const miniThRightStyle: React.CSSProperties = {
 };
 
 const miniTdStyle: React.CSSProperties = {
-  padding: "8px 10px",
+  padding: "7px 9px",
   borderBottom: "1px solid rgba(0,0,0,0.08)",
   fontSize: 13,
 };
