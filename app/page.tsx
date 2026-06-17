@@ -1735,6 +1735,8 @@ export default async function Home({ searchParams }: PageProps) {
           </div>
         </div>
 
+        <div style={fixedHeaderSpacerStyle} />
+
         <div id="summary">
           <ExecutiveSummary
           selectedMonth={selectedMonth}
@@ -1912,12 +1914,21 @@ const containerStyle: React.CSSProperties = {
 };
 
 const stickyHeaderStyle: React.CSSProperties = {
-  position: "sticky",
+  position: "fixed",
   top: 0,
-  zIndex: 50,
+  left: "50%",
+  transform: "translateX(-50%)",
+  zIndex: 1000,
+  width: "calc(100% - 32px)",
+  maxWidth: 1200,
   background: "#f7f7f8",
   padding: "8px 0 10px",
   borderBottom: "1px solid #e5e7eb",
+  boxShadow: "0 4px 14px rgba(15, 23, 42, 0.08)",
+};
+
+const fixedHeaderSpacerStyle: React.CSSProperties = {
+  height: 156,
 };
 
 const headerRowStyle: React.CSSProperties = {
