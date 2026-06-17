@@ -504,10 +504,19 @@ function MiniLineChart({
 }) {
   const cleanRows = rows
     .filter((row) => row[xKey] && !Number.isNaN(Number(row[yKey])))
-    .map((row) => ({
-      label: formatMonthYearLabel(String(row[xKey])),
-      value: Number(row[yKey]) || 0,
-    }));
+    .map((row) => {
+      const label = formatMonthYearLabel(String(row[xKey]));
+      const parts = label.split(" ");
+      const yearLabel = parts.length > 1 ? parts[parts.length - 1] : "";
+      const monthLabel = parts.length > 1 ? parts.slice(0, -1).join(" ") : label;
+
+      return {
+        label,
+        monthLabel,
+        yearLabel,
+        value: Number(row[yKey]) || 0,
+      };
+    });
 
   if (cleanRows.length === 0) {
     return (
@@ -519,19 +528,36 @@ function MiniLineChart({
   }
 
   const width = 1000;
-  const height = 340;
+  const height = 360;
   const paddingLeft = 80;
   const paddingRight = 35;
   const paddingTop = 45;
-  const paddingBottom = 70;
+  const paddingBottom = 90;
 
-  const tickStep = 100000;
   const maxRawValue = Math.max(...cleanRows.map((row) => row.value), 1);
-  const axisMax = Math.ceil(maxRawValue / tickStep) * tickStep;
+  const paddedMaxValue = maxRawValue * 1.15;
+  const roughStep = paddedMaxValue / 5;
+  const magnitude = Math.pow(10, Math.floor(Math.log10(Math.max(roughStep, 1))));
+  const normalizedStep = roughStep / magnitude;
+
+  let niceStepMultiplier = 1;
+
+  if (normalizedStep <= 1) {
+    niceStepMultiplier = 1;
+  } else if (normalizedStep <= 2) {
+    niceStepMultiplier = 2;
+  } else if (normalizedStep <= 5) {
+    niceStepMultiplier = 5;
+  } else {
+    niceStepMultiplier = 10;
+  }
+
+  const tickStep = Math.max(niceStepMultiplier * magnitude, 1);
+  const axisMax = Math.max(tickStep, Math.ceil(paddedMaxValue / tickStep) * tickStep);
 
   const tickValues: number[] = [];
 
-  for (let value = 0; value <= axisMax; value += tickStep) {
+  for (let value = 0; value <= axisMax + tickStep * 0.5; value += tickStep) {
     tickValues.push(value);
   }
 
@@ -634,12 +660,19 @@ function MiniLineChart({
 
               <text
                 x={point.x}
-                y={height - 35}
+                y={height - 52}
                 textAnchor="middle"
                 fontSize="12"
                 fill="#6b7280"
               >
-                {point.label}
+                <tspan x={point.x} dy="0">
+                  {point.monthLabel}
+                </tspan>
+                {point.yearLabel && (
+                  <tspan x={point.x} dy="16">
+                    {point.yearLabel}
+                  </tspan>
+                )}
               </text>
             </g>
           ))}
@@ -1255,10 +1288,6 @@ export default async function Home({ searchParams }: PageProps) {
 
         <DataQualityNotice selectedMonth={selectedMonth} />
 
-        <CreditClaimSection
-          creditClaim={snapshot.credit_claim}
-          selectedMonthKey={selectedMonthKey}
-        />
 
         <section style={sectionStyle}>
           <h2 style={sectionTitleStyle}>Monthly Performance</h2>
@@ -1385,6 +1414,11 @@ export default async function Home({ searchParams }: PageProps) {
             labelKey="ClientName"
           />
         </DetailsSection>
+
+        <CreditClaimSection
+          creditClaim={snapshot.credit_claim}
+          selectedMonthKey={selectedMonthKey}
+        />
       </div>
     </main>
   );
