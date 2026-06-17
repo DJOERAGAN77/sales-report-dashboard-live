@@ -47,7 +47,23 @@ type CreditClaimMonthPayload = {
   top_countries?: Record<string, any>[];
   top_channels?: Record<string, any>[];
   top_product_types?: Record<string, any>[];
+  top_skus?: Record<string, any>[];
+  document_type_sections?: Record<string, CreditClaimDocumentSection>;
   data_quality?: Record<string, any>[];
+};
+
+type CreditClaimDocumentSection = {
+  document_type?: string;
+  current_month?: {
+    total_amount?: number | null;
+    orders?: number | null;
+    clients?: number | null;
+    quantity?: number | null;
+  };
+  top_reasons?: Record<string, any>[];
+  top_clients?: Record<string, any>[];
+  top_product_types?: Record<string, any>[];
+  top_skus?: Record<string, any>[];
 };
 
 type CreditClaimSnapshot = {
@@ -912,7 +928,6 @@ function CreditClaimSummaryTable({
                 <th style={thStyle}>{labelKey}</th>
                 <th style={thRightStyle}>Amount</th>
                 <th style={thRightStyle}>Orders</th>
-                <th style={thRightStyle}>Lines</th>
                 <th style={thRightStyle}>Quantity</th>
               </tr>
             </thead>
@@ -923,7 +938,6 @@ function CreditClaimSummaryTable({
                   <td style={tdStyle}>{String(row[labelKey] || "-")}</td>
                   <td style={tdRightStyle}>{formatMoney(row.TotalAmount)}</td>
                   <td style={tdRightStyle}>{formatNumber(row.Orders)}</td>
-                  <td style={tdRightStyle}>{formatNumber(row.Lines)}</td>
                   <td style={tdRightStyle}>{formatNumber(row.Quantity)}</td>
                 </tr>
               ))}
@@ -932,6 +946,54 @@ function CreditClaimSummaryTable({
         </div>
       )}
     </section>
+  );
+}
+
+function CreditClaimSkuTable({
+  title,
+  rows,
+}: {
+  title: string;
+  rows: Record<string, any>[];
+}) {
+  const displayRows = (rows || []).slice(0, 15);
+
+  return (
+    <DetailsSection title={title}>
+      {displayRows.length === 0 ? (
+        <p style={mutedStyle}>No SKU data available.</p>
+      ) : (
+        <div style={tableWrapperStyle}>
+          <table style={tableStyle}>
+            <thead>
+              <tr>
+                <th style={thStyle}>SKU</th>
+                <th style={thStyle}>Product</th>
+                <th style={thRightStyle}>Amount</th>
+                <th style={thRightStyle}>Orders</th>
+                <th style={thRightStyle}>Quantity</th>
+              </tr>
+            </thead>
+
+            <tbody>
+              {displayRows.map((row, index) => (
+                <tr key={index}>
+                  <td style={tdStyle}>
+                    <strong>{String(row.Item || row.SKU || "-")}</strong>
+                  </td>
+                  <td style={tdStyle}>
+                    {String(row.ProductName || row.ItemDescription || "-")}
+                  </td>
+                  <td style={tdRightStyle}>{formatMoney(row.TotalAmount)}</td>
+                  <td style={tdRightStyle}>{formatNumber(row.Orders)}</td>
+                  <td style={tdRightStyle}>{formatNumber(row.Quantity)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </DetailsSection>
   );
 }
 
@@ -973,6 +1035,74 @@ function CreditClaimDataQualityTable({
   );
 }
 
+function CreditClaimDocumentTypeBlock({
+  title,
+  section,
+}: {
+  title: string;
+  section?: CreditClaimDocumentSection;
+}) {
+  if (!section) {
+    return null;
+  }
+
+  const current = section.current_month || {};
+
+  return (
+    <>
+      <section style={sectionStyle}>
+        <h2 style={sectionTitleStyle}>{title}</h2>
+
+        <div style={gridStyle}>
+          <KpiCard
+            label={`${title} Amount`}
+            value={current.total_amount}
+            type="money"
+          />
+
+          <KpiCard
+            label={`${title} Orders`}
+            value={current.orders}
+          />
+
+          <KpiCard
+            label={`${title} Clients`}
+            value={current.clients}
+          />
+
+          <KpiCard
+            label={`${title} Quantity`}
+            value={current.quantity}
+          />
+        </div>
+      </section>
+
+      <CreditClaimSummaryTable
+        title={`Top ${title} Reasons`}
+        rows={section.top_reasons || []}
+        labelKey="ReasonCategory"
+      />
+
+      <CreditClaimSummaryTable
+        title={`Top ${title} Clients`}
+        rows={section.top_clients || []}
+        labelKey="ClientName"
+      />
+
+      <CreditClaimSummaryTable
+        title={`Top ${title} Product Types`}
+        rows={section.top_product_types || []}
+        labelKey="ProductType"
+      />
+
+      <CreditClaimSkuTable
+        title={`View Top ${title} SKUs`}
+        rows={section.top_skus || []}
+      />
+    </>
+  );
+}
+
 function CreditClaimSection({
   creditClaim,
   selectedMonthKey,
@@ -1002,6 +1132,10 @@ function CreditClaimSection({
   const trendRows = (creditClaim.monthly_trend || [])
     .filter((row) => String(row.YearMonth || "") <= String(selectedMonthKey || creditClaim.latest_month || ""))
     .slice(-24);
+
+  const documentSections = selectedCreditClaimMonth.document_type_sections || {};
+  const creditNoteSection = documentSections["Credit Note"];
+  const claimSection = documentSections["Claim"];
 
   return (
     <>
@@ -1083,22 +1217,14 @@ function CreditClaimSection({
         yKey="TotalAmount"
       />
 
-      <CreditClaimSummaryTable
-        title="Top Credit Note & Claim Reasons"
-        rows={selectedCreditClaimMonth.top_reasons || []}
-        labelKey="ReasonCategory"
+      <CreditClaimDocumentTypeBlock
+        title="Credit Note"
+        section={creditNoteSection}
       />
 
-      <CreditClaimSummaryTable
-        title="Top Credit Note & Claim Clients"
-        rows={selectedCreditClaimMonth.top_clients || []}
-        labelKey="ClientName"
-      />
-
-      <CreditClaimSummaryTable
-        title="Top Credit Note & Claim Product Types"
-        rows={selectedCreditClaimMonth.top_product_types || []}
-        labelKey="ProductType"
+      <CreditClaimDocumentTypeBlock
+        title="Claim"
+        section={claimSection}
       />
 
       <CreditClaimDataQualityTable
