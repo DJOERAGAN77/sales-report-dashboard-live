@@ -3,21 +3,130 @@
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
+type AnyRow = Record<string, any>;
+
+const RISK_SORT: Record<string, number> = {
+  "Dead Stock": 1,
+  "Overstock Risk": 2,
+  "Slow Mover": 3,
+  "Watchlist": 4,
+  "New / No Sales History": 5,
+};
+
 function safeSheetName(name: string) {
-  return name
-    .replace(/[\\/?*[\]:]/g, " ")
-    .slice(0, 31)
-    .trim() || "Sheet";
+  return name.replace(/[\\/?*[\]:]/g, " ").slice(0, 31).trim() || "Sheet";
 }
 
-function addSheet(workbook: XLSX.WorkBook, name: string, rows: Record<string, any>[]) {
+function toNumber(value: any) {
+  if (value === null || value === undefined || value === "") return "";
+  const numeric = Number(value);
+  return Number.isFinite(numeric) ? numeric : value;
+}
+
+function toDateText(value: any) {
+  if (!value) return "";
+  return String(value).slice(0, 10);
+}
+
+function recommendedAction(riskLevel: string) {
+  if (riskLevel === "Dead Stock") {
+    return "Clearance / discount / stop reorder";
+  }
+
+  if (riskLevel === "Overstock Risk") {
+    return "Review pricing, promo, channel push, stop new buying";
+  }
+
+  if (riskLevel === "Slow Mover") {
+    return "Monitor, reduce reorder, consider promo";
+  }
+
+  if (riskLevel === "Watchlist") {
+    return "Watch next month before action";
+  }
+
+  if (riskLevel === "New / No Sales History") {
+    return "Observe only; not counted as slow mover yet";
+  }
+
+  return "";
+}
+
+function formatInventoryRows(rows: AnyRow[]) {
+  return (rows || []).map((row) => {
+    const riskLevel = String(row.RiskLevel || "");
+
+    return {
+      "Risk Priority": RISK_SORT[riskLevel] || 99,
+      "Recommended Action": recommendedAction(riskLevel),
+      "Risk Level": riskLevel,
+      "Risk Reason": row.RiskReason || "",
+      "SKU": row.SKU || "",
+      "Product Name": row.ProductName || "",
+      "Product Type": row.ProductType || "",
+      "Material": row.Material || "",
+      "Category": row.Category || "",
+      "Stock": toNumber(row.Stock),
+      "Planned In": toNumber(row.PlannedInStock),
+      "Planned Out": toNumber(row.PlannedOutStock),
+      "Available Stock": toNumber(row.AvailableStock),
+      "Gross Exposure": toNumber(row.GrossInventoryExposure),
+      "Sold 90D": toNumber(row.QtySold90D),
+      "Sold 180D": toNumber(row.QtySold180D),
+      "Sold All Time": toNumber(row.QtySoldAllTime),
+      "Sell-through 90D %": toNumber(row.SellThrough90D),
+      "Slow Threshold %": toNumber(row.CategorySlowThreshold),
+      "Days Inventory": toNumber(row.DaysOfInventory),
+      "Watchlist Days": toNumber(row.CategoryWatchlistDays),
+      "Overstock Days": toNumber(row.CategoryOverstockDays),
+      "First Sold Date": toDateText(row.FirstSoldDate),
+      "Last Sold Date": toDateText(row.LastSoldDate),
+      "Days Since Last Sale": toNumber(row.DaysSinceLastSale),
+      "First Seen Date": toDateText(row.FirstSeenDate),
+      "Days Since First Seen": toNumber(row.DaysSinceFirstSeen),
+    };
+  });
+}
+
+function formatThresholdRows(thresholds: AnyRow) {
+  return Object.entries(thresholds || {}).map(([ProductType, value]) => ({
+    "Product Type": ProductType,
+    "Slow Sell-through %": (value as AnyRow)?.slow_sell_through ?? "",
+    "Watchlist Days": (value as AnyRow)?.watchlist_days ?? "",
+    "Overstock Days": (value as AnyRow)?.overstock_days ?? "",
+    "Meaning": "Used to classify Inventory Risk by Product Type",
+  }));
+}
+
+function formatLogicRows(logic: AnyRow) {
+  return Object.entries(logic || {}).map(([Key, Description]) => ({
+    "Logic Key": Key,
+    "Description": Description,
+  }));
+}
+
+function addSheet(workbook: XLSX.WorkBook, name: string, rows: AnyRow[]) {
   const safeRows = rows && rows.length > 0 ? rows : [{ Message: "No data available" }];
   const worksheet = XLSX.utils.json_to_sheet(safeRows);
 
-  const columnNames = Object.keys(safeRows[0] || {});
-  worksheet["!cols"] = columnNames.map((columnName) => ({
-    wch: Math.min(Math.max(columnName.length + 2, 12), 40),
+  const headers = Object.keys(safeRows[0] || {});
+  worksheet["!cols"] = headers.map((header) => ({
+    wch: Math.min(
+      Math.max(
+        header.length + 2,
+        ...safeRows.slice(0, 200).map((row) => String(row[header] ?? "").length + 2),
+        12,
+      ),
+      60,
+    ),
   }));
+
+  worksheet["!autofilter"] = {
+    ref: XLSX.utils.encode_range({
+      s: { r: 0, c: 0 },
+      e: { r: safeRows.length, c: Math.max(headers.length - 1, 0) },
+    }),
+  };
 
   XLSX.utils.book_append_sheet(workbook, worksheet, safeSheetName(name));
 }
@@ -46,50 +155,48 @@ export async function GET() {
   const snapshot = await response.json();
   const inventoryRisk = snapshot?.inventory_risk || {};
   const summary = inventoryRisk.summary || {};
-  const logic = inventoryRisk.logic || {};
   const thresholds = inventoryRisk.thresholds || {};
+  const logic = inventoryRisk.logic || {};
+
+  const allRiskRows = formatInventoryRows(inventoryRisk.slow_movers || []).sort(
+    (a, b) =>
+      Number(a["Risk Priority"] || 99) - Number(b["Risk Priority"] || 99) ||
+      Number(b["Gross Exposure"] || 0) - Number(a["Gross Exposure"] || 0),
+  );
+
+  const deadStockRows = formatInventoryRows(inventoryRisk.dead_stock || []);
+  const overstockRows = formatInventoryRows(inventoryRisk.overstock || []);
+  const slowMoverRows = allRiskRows.filter((row) => row["Risk Level"] === "Slow Mover");
+  const watchlistRows = formatInventoryRows(inventoryRisk.watchlist || []);
+  const newNoSalesRows = formatInventoryRows(inventoryRisk.new_no_sales_history || []);
 
   const workbook = XLSX.utils.book_new();
 
-  addSheet(workbook, "Summary", [
+  addSheet(workbook, "00 Summary", [
     {
-      Warehouse: inventoryRisk.warehouse || "01",
-      AsOf: inventoryRisk.as_of || "",
-      SourceFile: inventoryRisk.source_file || "",
-      TotalSKUsWithStock: summary.total_skus_with_stock ?? "",
-      RiskSKUs: summary.risk_skus ?? "",
-      DeadStockSKUs: summary.dead_stock_skus ?? "",
-      SlowMoverSKUs: summary.slow_mover_skus ?? "",
-      OverstockSKUs: summary.overstock_skus ?? "",
-      WatchlistSKUs: summary.watchlist_skus ?? "",
-      NewNoSalesHistorySKUs: summary.new_no_sales_history_skus ?? "",
-      StockUnitsAtRisk: summary.stock_units_at_risk ?? "",
+      "Warehouse": inventoryRisk.warehouse || "01",
+      "As Of": inventoryRisk.as_of || "",
+      "Source File": inventoryRisk.source_file || "",
+      "Total SKUs With Stock": summary.total_skus_with_stock ?? "",
+      "Risk SKUs": summary.risk_skus ?? "",
+      "Dead Stock SKUs": summary.dead_stock_skus ?? "",
+      "Slow Mover SKUs": summary.slow_mover_skus ?? "",
+      "Overstock SKUs": summary.overstock_skus ?? "",
+      "Watchlist SKUs": summary.watchlist_skus ?? "",
+      "New / No Sales History SKUs": summary.new_no_sales_history_skus ?? "",
+      "Stock Units at Risk": summary.stock_units_at_risk ?? "",
+      "Note": "Risk SKUs exclude New / No Sales History SKUs.",
     },
   ]);
 
-  addSheet(workbook, "Slow Movers All", inventoryRisk.slow_movers || []);
-  addSheet(workbook, "Dead Stock", inventoryRisk.dead_stock || []);
-  addSheet(workbook, "Overstock Risk", inventoryRisk.overstock || []);
-  addSheet(workbook, "Watchlist", inventoryRisk.watchlist || []);
-  addSheet(workbook, "New No Sales History", inventoryRisk.new_no_sales_history || []);
-
-  addSheet(
-    workbook,
-    "Logic",
-    Object.entries(logic).map(([Key, Description]) => ({
-      Key,
-      Description,
-    })),
-  );
-
-  addSheet(
-    workbook,
-    "Thresholds",
-    Object.entries(thresholds).map(([ProductType, value]) => ({
-      ProductType,
-      ...(typeof value === "object" && value !== null ? value : { Value: value }),
-    })),
-  );
+  addSheet(workbook, "01 Action List", allRiskRows);
+  addSheet(workbook, "02 Overstock Risk", overstockRows);
+  addSheet(workbook, "03 Slow Movers", slowMoverRows);
+  addSheet(workbook, "04 Dead Stock", deadStockRows);
+  addSheet(workbook, "05 Watchlist", watchlistRows);
+  addSheet(workbook, "06 New No Sales", newNoSalesRows);
+  addSheet(workbook, "07 Thresholds", formatThresholdRows(thresholds));
+  addSheet(workbook, "08 Logic", formatLogicRows(logic));
 
   const buffer = XLSX.write(workbook, {
     type: "buffer",
