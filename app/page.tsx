@@ -1300,7 +1300,7 @@ function CreditClaimSummaryTable({
   rows: Record<string, any>[];
   labelKey: string;
 }) {
-  const displayRows = (rows || []).slice(0, 20);
+  const displayRows = rows || [];
 
   return (
     <DetailsSection title={title}>
