@@ -1179,7 +1179,7 @@ function InventoryRiskTable({
   title: string;
   rows: Record<string, any>[];
 }) {
-  const displayRows = (rows || []).slice(0, 20);
+  const displayRows = rows || [];
 
   return (
     <DetailsSection title={title}>
