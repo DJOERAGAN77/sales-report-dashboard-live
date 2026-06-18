@@ -85,6 +85,27 @@ type CreditClaimSnapshot = {
   months?: Record<string, CreditClaimMonthPayload>;
 };
 
+
+type InventoryRiskSnapshot = {
+  success?: boolean;
+  source_file?: string | null;
+  warehouse?: string | null;
+  as_of?: string | null;
+  summary?: {
+    total_skus_with_stock?: number | null;
+    risk_skus?: number | null;
+    dead_stock_skus?: number | null;
+    slow_mover_skus?: number | null;
+    overstock_skus?: number | null;
+    watchlist_skus?: number | null;
+    stock_units_at_risk?: number | null;
+  };
+  slow_movers?: Record<string, any>[];
+  dead_stock?: Record<string, any>[];
+  overstock?: Record<string, any>[];
+  watchlist?: Record<string, any>[];
+};
+
 type SnapshotData = {
   success?: boolean;
   source?: string;
@@ -94,6 +115,7 @@ type SnapshotData = {
   monthly_trend?: Record<string, any>[];
   months?: Record<string, MonthSnapshot>;
   credit_claim?: CreditClaimSnapshot;
+  inventory_risk?: InventoryRiskSnapshot;
 };
 
 type PageProps = {
@@ -1146,6 +1168,129 @@ function DetailsSection({
   );
 }
 
+
+function InventoryRiskTable({
+  title,
+  rows,
+}: {
+  title: string;
+  rows: Record<string, any>[];
+}) {
+  const displayRows = rows || [];
+
+  return (
+    <DetailsSection title={title}>
+      {displayRows.length === 0 ? (
+        <p style={mutedStyle}>No inventory risk data available.</p>
+      ) : (
+        <div style={tableWrapperStyle}>
+          <table style={tableStyle}>
+            <thead>
+              <tr>
+                <th style={thStyle}>SKU</th>
+                <th style={thStyle}>Product</th>
+                <th style={thStyle}>Risk</th>
+                <th style={thRightStyle}>Stock</th>
+                <th style={thRightStyle}>Available</th>
+                <th style={thRightStyle}>Sold 90D</th>
+                <th style={thRightStyle}>Sold 180D</th>
+                <th style={thRightStyle}>Days no sale</th>
+                <th style={thRightStyle}>Days inventory</th>
+              </tr>
+            </thead>
+
+            <tbody>
+              {displayRows.map((row, index) => (
+                <tr key={index}>
+                  <td style={tdStyle}><strong>{String(row.SKU || "-")}</strong></td>
+                  <td style={tdStyle}>{String(row.ProductName || "-")}</td>
+                  <td style={tdStyle}>{String(row.ProductType || "-")}</td>
+                  <td style={tdStyle}>{String(row.RiskLevel || "-")}</td>
+                  <td style={tdRightStyle}>{formatNumber(row.Stock)}</td>
+                  <td style={tdRightStyle}>{formatNumber(row.PlannedInStock)}</td>
+                  <td style={tdRightStyle}>{formatNumber(row.PlannedOutStock)}</td>
+                  <td style={tdRightStyle}>{formatNumber(row.AvailableStock)}</td>
+                  <td style={tdRightStyle}>{formatNumber(row.GrossInventoryExposure)}</td>
+                  <td style={tdRightStyle}>{formatNumber(row.QtySold90D)}</td>
+                  <td style={tdRightStyle}>{formatPercent(row.SellThrough90D)}</td>
+                  <td style={tdRightStyle}>{formatNumber(row.DaysOfInventory)}</td>
+                  <td style={tdStyle}>{String(row.RiskReason || "-")}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </DetailsSection>
+  );
+}
+
+function InventoryRiskSection({
+  inventoryRisk,
+}: {
+  inventoryRisk?: InventoryRiskSnapshot;
+}) {
+  if (!inventoryRisk?.success) {
+    return null;
+  }
+
+  const summary = inventoryRisk.summary || {};
+
+  return (
+    <section id="inventory-risk" style={sectionStyle}>
+      <p style={eyebrowStyle}>Inventory</p>
+      <h2 style={sectionTitleStyle}>Slow Movers / Overstock Risk</h2>
+      <p style={mutedStyle}>
+        Warehouse {inventoryRisk.warehouse || "01"} only. Slow mover uses sell-through, days of inventory,
+        planned incoming stock, and product-type thresholds.
+      </p>
+
+      <div style={logicBoxStyle}>
+        <strong>Slow mover logic</strong>
+        <ul style={logicListStyle}>
+          <li><b>Gross Exposure</b> = Stock + Planned In.</li>
+          <li><b>Sell-through 90D</b> = Sold 90D / (Sold 90D + Gross Exposure).</li>
+          <li><b>Days Inventory</b> = Gross Exposure / average daily sales over 90 days.</li>
+          <li><b>Dead Stock</b>: stock exposure exists, but no sales in 180 days.</li>
+          <li><b>Overstock Risk</b>: sell-through is below category threshold and days inventory is above category limit.</li>
+          <li><b>Slow Mover</b>: sell-through is below category threshold, but SKU still had sales within 180 days.</li>
+          <li><b>Watchlist</b>: days inventory is high but not yet critical.</li>
+        </ul>
+      </div>
+
+      <div style={gridStyle}>
+        <KpiCard label="Risk SKUs" value={summary.risk_skus} />
+        <KpiCard label="Dead Stock SKUs" value={summary.dead_stock_skus} />
+        <KpiCard label="Slow Mover SKUs" value={summary.slow_mover_skus} />
+        <KpiCard label="Overstock SKUs" value={summary.overstock_skus} />
+        <KpiCard label="Watchlist SKUs" value={summary.watchlist_skus} />
+        <KpiCard label="Stock Units at Risk" value={summary.stock_units_at_risk} />
+      </div>
+
+      <InventoryRiskTable
+        title="View Slow Movers / Overstock Risk SKUs"
+        rows={inventoryRisk.slow_movers || []}
+      />
+
+      <InventoryRiskTable
+        title="View Dead Stock SKUs"
+        rows={inventoryRisk.dead_stock || []}
+      />
+
+      <InventoryRiskTable
+        title="View Overstock SKUs"
+        rows={inventoryRisk.overstock || []}
+      />
+
+      <InventoryRiskTable
+        title="View Watchlist SKUs"
+        rows={inventoryRisk.watchlist || []}
+      />
+    </section>
+  );
+}
+
+
 function CreditClaimSummaryTable({
   title,
   rows,
@@ -1548,6 +1693,7 @@ function MiniAnchorNav() {
     { href: "#countries", label: "Countries" },
     { href: "#products", label: "Products" },
     { href: "#clients", label: "Clients" },
+    { href: "#inventory-risk", label: "Inventory" },
     { href: "#credit-claim", label: "CN / Claim" },
   ];
 
@@ -1884,6 +2030,8 @@ export default async function Home({ searchParams }: PageProps) {
         </DetailsSection>
         </div>
 
+        <InventoryRiskSection inventoryRisk={snapshot.inventory_risk} />
+
         <div id="credit-claim">
           <CreditClaimSection
           creditClaim={snapshot.credit_claim}
@@ -1895,6 +2043,23 @@ export default async function Home({ searchParams }: PageProps) {
     </main>
   );
 }
+
+
+const logicBoxStyle: React.CSSProperties = {
+  border: "1px solid #dbe3ef",
+  background: "#f8fafc",
+  borderRadius: 14,
+  padding: "14px 16px",
+  margin: "14px 0 18px",
+  color: "#1f2937",
+};
+
+const logicListStyle: React.CSSProperties = {
+  margin: "10px 0 0",
+  paddingLeft: 20,
+  lineHeight: 1.65,
+  fontSize: 13,
+};
 
 const pageStyle: React.CSSProperties = {
   minHeight: "100vh",
