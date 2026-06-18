@@ -13,6 +13,36 @@ const RISK_SORT: Record<string, number> = {
   "New / No Sales History": 5,
 };
 
+const FIXED_COLUMN_WIDTHS: Record<string, number> = {
+  "Risk Priority": 4,
+  "Recommended Action": 14,
+  "Risk Level": 14,
+  "Risk Reason": 14,
+  "SKU": 14,
+  "Product Name": 14,
+  "Product Type": 14,
+  "Category": 14,
+  "Stock": 8,
+  "Planned In": 9,
+  "Planned Out": 9,
+  "Available Stock": 10,
+  "Gross Exposure": 10,
+  "Sold 90D": 8,
+  "Sold 180D": 8,
+  "Sold All Time": 9,
+  "Sell-through 90D %": 10,
+  "Slow Threshold %": 10,
+  "Days Inventory": 10,
+  "Watchlist Days": 9,
+  "Overstock Days": 9,
+  "First Sold Date": 12,
+  "Last Sold Date": 12,
+  "Days Since Last Sale": 10,
+  "First Seen Date": 12,
+  "Days Since First Seen": 10,
+};
+
+
 function safeSheetName(name: string) {
   return name.replace(/[\\/?*[\]:]/g, " ").slice(0, 31).trim() || "Sheet";
 }
@@ -64,7 +94,6 @@ function formatInventoryRows(rows: AnyRow[]) {
       "SKU": row.SKU || "",
       "Product Name": row.ProductName || "",
       "Product Type": row.ProductType || "",
-      "Material": row.Material || "",
       "Category": row.Category || "",
       "Stock": toNumber(row.Stock),
       "Planned In": toNumber(row.PlannedInStock),
@@ -105,21 +134,63 @@ function formatLogicRows(logic: AnyRow) {
   }));
 }
 
+function getColumnWidth(header: string, rows: AnyRow[]) {
+  if (FIXED_COLUMN_WIDTHS[header]) {
+    return FIXED_COLUMN_WIDTHS[header];
+  }
+
+  const isNumericHeader =
+    header.includes("Stock") ||
+    header.includes("Sold") ||
+    header.includes("Days") ||
+    header.includes("%") ||
+    header.includes("Priority") ||
+    header.includes("Exposure");
+
+  if (isNumericHeader) {
+    return 9;
+  }
+
+  const maxContentWidth = Math.max(
+    header.length + 2,
+    ...rows.slice(0, 100).map((row) => String(row[header] ?? "").length + 2),
+    10,
+  );
+
+  return Math.min(maxContentWidth, 18);
+}
+
 function addSheet(workbook: XLSX.WorkBook, name: string, rows: AnyRow[]) {
   const safeRows = rows && rows.length > 0 ? rows : [{ Message: "No data available" }];
   const worksheet = XLSX.utils.json_to_sheet(safeRows);
 
   const headers = Object.keys(safeRows[0] || {});
   worksheet["!cols"] = headers.map((header) => ({
-    wch: Math.min(
-      Math.max(
-        header.length + 2,
-        ...safeRows.slice(0, 200).map((row) => String(row[header] ?? "").length + 2),
-        12,
-      ),
-      60,
-    ),
+    wch: getColumnWidth(header, safeRows),
   }));
+
+  worksheet["!rows"] = [
+    {
+      hpt: 30,
+    },
+  ];
+
+  for (let columnIndex = 0; columnIndex < headers.length; columnIndex += 1) {
+    const address = XLSX.utils.encode_cell({ r: 0, c: columnIndex });
+
+    if (worksheet[address]) {
+      worksheet[address].s = {
+        alignment: {
+          wrapText: true,
+          vertical: "center",
+          horizontal: "center",
+        },
+        font: {
+          bold: true,
+        },
+      };
+    }
+  }
 
   worksheet["!autofilter"] = {
     ref: XLSX.utils.encode_range({
