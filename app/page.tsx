@@ -1248,6 +1248,12 @@ function InventoryRiskSection({
         planned incoming stock, and product-type thresholds.
       </p>
 
+      <div style={downloadRowStyle}>
+        <a href="/api/inventory-risk-xlsx" style={downloadButtonStyle}>
+          Download Slow Movers Excel (.xlsx)
+        </a>
+      </div>
+
       <div style={logicBoxStyle}>
         <strong>Slow mover logic</strong>
         <ul style={logicListStyle}>
@@ -2054,6 +2060,26 @@ export default async function Home({ searchParams }: PageProps) {
   );
 }
 
+
+const downloadRowStyle: React.CSSProperties = {
+  display: "flex",
+  justifyContent: "flex-start",
+  margin: "12px 0 16px",
+};
+
+const downloadButtonStyle: React.CSSProperties = {
+  display: "inline-flex",
+  alignItems: "center",
+  justifyContent: "center",
+  border: "1px solid #1f2937",
+  background: "#1f2937",
+  color: "#ffffff",
+  borderRadius: 999,
+  padding: "9px 14px",
+  fontSize: 13,
+  fontWeight: 700,
+  textDecoration: "none",
+};
 
 const logicBoxStyle: React.CSSProperties = {
   border: "1px solid #dbe3ef",
