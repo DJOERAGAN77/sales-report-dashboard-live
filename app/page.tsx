@@ -1176,7 +1176,7 @@ function InventoryRiskTable({
   title: string;
   rows: Record<string, any>[];
 }) {
-  const displayRows = rows || [];
+  const displayRows = (rows || []).slice(0, 20);
 
   return (
     <DetailsSection title={title}>
@@ -1300,7 +1300,7 @@ function CreditClaimSummaryTable({
   rows: Record<string, any>[];
   labelKey: string;
 }) {
-  const displayRows = rows || [];
+  const displayRows = (rows || []).slice(0, 20);
 
   return (
     <DetailsSection title={title}>
@@ -1693,8 +1693,8 @@ function MiniAnchorNav() {
     { href: "#countries", label: "Countries" },
     { href: "#products", label: "Products" },
     { href: "#clients", label: "Clients" },
-    { href: "#inventory-risk", label: "Inventory" },
     { href: "#credit-claim", label: "CN / Claim" },
+    { href: "#inventory-risk", label: "Inventory" },
   ];
 
   return (
@@ -2030,8 +2030,6 @@ export default async function Home({ searchParams }: PageProps) {
         </DetailsSection>
         </div>
 
-        <InventoryRiskSection inventoryRisk={snapshot.inventory_risk} />
-
         <div id="credit-claim">
           <CreditClaimSection
           creditClaim={snapshot.credit_claim}
@@ -2039,6 +2037,8 @@ export default async function Home({ searchParams }: PageProps) {
           selectedSalesMonth={selectedMonth}
           />
         </div>
+
+        <InventoryRiskSection inventoryRisk={snapshot.inventory_risk} />
       </div>
     </main>
   );
