@@ -98,12 +98,15 @@ type InventoryRiskSnapshot = {
     slow_mover_skus?: number | null;
     overstock_skus?: number | null;
     watchlist_skus?: number | null;
+    new_no_sales_history_skus?: number | null;
+    new_no_sales_history_stock_units?: number | null;
     stock_units_at_risk?: number | null;
   };
   slow_movers?: Record<string, any>[];
   dead_stock?: Record<string, any>[];
   overstock?: Record<string, any>[];
   watchlist?: Record<string, any>[];
+  new_no_sales_history?: Record<string, any>[];
 };
 
 type SnapshotData = {
@@ -1251,7 +1254,8 @@ function InventoryRiskSection({
           <li><b>Gross Exposure</b> = Stock + Planned In.</li>
           <li><b>Sell-through 90D</b> = Sold 90D / (Sold 90D + Gross Exposure).</li>
           <li><b>Days Inventory</b> = Gross Exposure / average daily sales over 90 days.</li>
-          <li><b>Dead Stock</b>: stock exposure exists, but no sales in 180 days.</li>
+          <li><b>New / No Sales History</b>: current stock exists, but SKU never appeared in sales history; shown separately, not counted as slow mover.</li>
+          <li><b>Dead Stock</b>: SKU has sales history, but no sales in 180 days.</li>
           <li><b>Overstock Risk</b>: sell-through is below category threshold and days inventory is above category limit.</li>
           <li><b>Slow Mover</b>: sell-through is below category threshold, but SKU still had sales within 180 days.</li>
           <li><b>Watchlist</b>: days inventory is high but not yet critical.</li>
@@ -1264,6 +1268,7 @@ function InventoryRiskSection({
         <KpiCard label="Slow Mover SKUs" value={summary.slow_mover_skus} />
         <KpiCard label="Overstock SKUs" value={summary.overstock_skus} />
         <KpiCard label="Watchlist SKUs" value={summary.watchlist_skus} />
+        <KpiCard label="New / No Sales History" value={summary.new_no_sales_history_skus} />
         <KpiCard label="Stock Units at Risk" value={summary.stock_units_at_risk} />
       </div>
 
@@ -1285,6 +1290,11 @@ function InventoryRiskSection({
       <InventoryRiskTable
         title="View Watchlist SKUs"
         rows={inventoryRisk.watchlist || []}
+      />
+
+      <InventoryRiskTable
+        title="View New / No Sales History SKUs"
+        rows={inventoryRisk.new_no_sales_history || []}
       />
     </section>
   );
